@@ -11,18 +11,22 @@
 /* 段落复制图标样式 */
 .markdown-body .relative.group {
   position: relative;
-  padding-right: 24px; /* 为复制图标留出空间 */
+  overflow: visible; /* 确保内容不被裁剪 */
 }
 
 .markdown-body .relative.group:hover {
   background-color: rgba(0, 0, 0, 0.02); /* 鼠标悬停时添加背景色 */
 }
 
-.markdown-body .relative.group .absolute {
-  padding: 4px;
-  border-radius: 4px;
-  background-color: white;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-  margin-right: 4px;
-  margin-top: 4px;
+/* 删除这个选择器，改为在组件中直接设置样式 */
+
+/* 防止Tooltip导致滚动条 */
+.tooltip-container {
+  overflow: visible;
+  position: static;
+}
+
+/* 确保整个Markdown内容区域不出现水平滚动条 */
+.markdown-body {
+  overflow-x: hidden;
 }

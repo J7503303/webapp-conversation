@@ -55,20 +55,33 @@ function CopyableParagraph({ children, content }: CopyableParagraphProps) {
   return (
     <div className="relative group">
       <p>{children}</p>
-      <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div
+        className="absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+        style={{
+          position: 'absolute',
+          right: '-2px',  // 将图标定位在段落右侧的外部
+          top: '2px',
+          zIndex: 10
+        }}
+      >
         <Tooltip
           selector={tooltipId}
           content={isCopied ? '已复制' : '复制段落内容'}
-          position="top"
+          position="right"
+          className="!z-20" /* 增加z-index确保Tooltip在最上层 */
         >
-          {!isCopied ? (
-            <Clipboard
-              className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700"
-              onClick={handleCopy}
-            />
-          ) : (
-            <ClipboardCheck className="w-4 h-4 text-green-500" />
-          )}
+          <div
+            className="w-6 h-6 flex items-center justify-center cursor-pointer bg-white rounded-md shadow-sm"
+            onClick={handleCopy}
+          >
+            {!isCopied ? (
+              <Clipboard
+                className="w-4 h-4 text-gray-500 hover:text-gray-700"
+              />
+            ) : (
+              <ClipboardCheck className="w-4 h-4 text-green-500" />
+            )}
+          </div>
         </Tooltip>
       </div>
     </div>
