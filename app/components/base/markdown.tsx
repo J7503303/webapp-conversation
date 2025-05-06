@@ -58,7 +58,7 @@ function CopyableParagraph({ children, content }: CopyableParagraphProps) {
       <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity">
         <Tooltip
           selector={tooltipId}
-          content={isCopied ? '已复制' : '复制内容'}
+          content={isCopied ? '已复制' : '复制段落内容'}
           position="top"
         >
           {!isCopied ? (
