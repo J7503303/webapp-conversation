@@ -1,0 +1,9 @@
+/* Jinja模板变量样式 */
+.jinja-template {
+  display: inline;
+  font-weight: bold;
+  color: #0550ae; /* 使用蓝色突出显示模板变量 */
+  background-color: rgba(5, 80, 174, 0.1); /* 添加淡蓝色背景 */
+  padding: 0 2px;
+  border-radius: 3px;
+}
