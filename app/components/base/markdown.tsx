@@ -11,6 +11,8 @@ import { useState, useCallback } from 'react'
 import copy from 'copy-to-clipboard'
 import { Clipboard, ClipboardCheck } from '@/app/components/base/icons/line/files'
 import Toast from '@/app/components/base/toast'
+import Tooltip from '@/app/components/base/tooltip'
+import { randomString } from '@/utils/string'
 
 // 处理Jinja2模板语法，防止被Markdown解析器转义
 function preprocessJinjaTemplates(content: string): string {
@@ -33,6 +35,8 @@ interface CopyableParagraphProps {
 function CopyableParagraph({ children, content }: CopyableParagraphProps) {
   const [isCopied, setIsCopied] = useState(false)
   const { notify } = Toast
+  // 生成唯一的选择器ID
+  const tooltipId = `copy-tooltip-${randomString(8)}`
 
   const handleCopy = useCallback(() => {
     // 如果内容为空，不执行复制
@@ -52,14 +56,20 @@ function CopyableParagraph({ children, content }: CopyableParagraphProps) {
     <div className="relative group">
       <p>{children}</p>
       <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        {!isCopied ? (
-          <Clipboard
-            className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700"
-            onClick={handleCopy}
-          />
-        ) : (
-          <ClipboardCheck className="w-4 h-4 text-green-500" />
-        )}
+        <Tooltip
+          selector={tooltipId}
+          content={isCopied ? '已复制' : '复制内容'}
+          position="top"
+        >
+          {!isCopied ? (
+            <Clipboard
+              className="w-4 h-4 text-gray-500 cursor-pointer hover:text-gray-700"
+              onClick={handleCopy}
+            />
+          ) : (
+            <ClipboardCheck className="w-4 h-4 text-green-500" />
+          )}
+        </Tooltip>
       </div>
     </div>
   )
