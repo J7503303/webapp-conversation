@@ -116,7 +116,7 @@ const Answer: FC<IAnswerProps> = ({
   // 复制按钮组件
   const renderCopyButton = () => {
     return (
-      <Tooltip selector={`copy-message-${randomString(16)}`} content={isCopied ? '已复制' : '复制消息'}>
+      <Tooltip selector={`copy-message-${randomString(16)}`} content={isCopied ? '已复制' : '复制全部'}>
         {OperationBtn({
           innerContent: <IconWrapper>
             {!isCopied ? <Clipboard className="w-4 h-4" /> : <ClipboardCheck className="w-4 h-4" />}
