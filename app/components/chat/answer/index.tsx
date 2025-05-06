@@ -64,6 +64,7 @@ type IAnswerProps = {
   onFeedback?: FeedbackFunc
   isResponding?: boolean
   allToolIcons?: Record<string, string | Emoji>
+  showAvatar?: boolean
 }
 
 // The component needs to maintain its own state to control whether to display input component
@@ -73,6 +74,7 @@ const Answer: FC<IAnswerProps> = ({
   onFeedback,
   isResponding,
   allToolIcons,
+  showAvatar = true,
 }) => {
   const { id, content, feedback, agent_thoughts, workflowProcess } = item
   const isAgentMode = !!agent_thoughts && agent_thoughts.length > 0
@@ -231,16 +233,18 @@ const Answer: FC<IAnswerProps> = ({
   return (
     <div key={id}>
       <div className='flex items-start'>
-        <div className={`${s.answerIcon} w-10 h-10 shrink-0`}>
-          {isResponding
-            && <div className={s.typeingIcon}>
-              <LoadingAnim type='avatar' />
-            </div>
-          }
-        </div>
+        {showAvatar && (
+          <div className={`${s.answerIcon} w-10 h-10 shrink-0`}>
+            {isResponding
+              && <div className={s.typeingIcon}>
+                <LoadingAnim type='avatar' />
+              </div>
+            }
+          </div>
+        )}
         <div className={`${s.answerWrap}`}>
           <div className={`${s.answer} relative text-sm text-gray-900`}>
-            <div className={`ml-2 py-3 px-4 bg-gray-100 rounded-tr-2xl rounded-b-2xl ${workflowProcess && 'min-w-[480px]'}`}>
+            <div className={`${showAvatar ? 'ml-2' : ''} py-3 px-4 bg-gray-100 rounded-tr-2xl rounded-b-2xl ${workflowProcess && 'min-w-[480px]'}`}>
               {workflowProcess && (
                 <WorkflowProcess data={workflowProcess} hideInfo />
               )}

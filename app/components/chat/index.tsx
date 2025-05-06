@@ -15,6 +15,7 @@ import Toast from '@/app/components/base/toast'
 import ChatImageUploader from '@/app/components/base/image-uploader/chat-image-uploader'
 import ImageList from '@/app/components/base/image-uploader/image-list'
 import { useImageFiles } from '@/app/components/base/image-uploader/hooks'
+import { isShowAvatar } from '@/config'
 
 export type IChatProps = {
   chatList: ChatItem[]
@@ -130,6 +131,7 @@ const Chat: FC<IChatProps> = ({
               feedbackDisabled={feedbackDisabled}
               onFeedback={onFeedback}
               isResponding={isResponding && isLast}
+              showAvatar={isShowAvatar}
             />
           }
           return (
@@ -139,6 +141,7 @@ const Chat: FC<IChatProps> = ({
               content={item.content}
               useCurrentUserAvatar={useCurrentUserAvatar}
               imgSrcs={(item.message_files && item.message_files?.length > 0) ? item.message_files.map(item => item.url) : []}
+              showAvatar={isShowAvatar}
             />
           )
         })}
