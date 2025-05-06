@@ -14,6 +14,10 @@ import Tooltip from '@/app/components/base/tooltip'
 import WorkflowProcess from '@/app/components/workflow/workflow-process'
 import { Markdown } from '@/app/components/base/markdown'
 import type { Emoji } from '@/types/tools'
+import { useState, useCallback } from 'react'
+import copy from 'copy-to-clipboard'
+import { Clipboard, ClipboardCheck } from '@/app/components/base/icons/line/files'
+import Toast from '@/app/components/base/toast'
 
 const OperationBtn = ({ innerContent, onClick, className }: { innerContent: React.ReactNode; onClick?: () => void; className?: string }) => (
   <div
@@ -109,10 +113,67 @@ const Answer: FC<IAnswerProps> = ({
     )
   }
 
+  // 复制按钮组件
+  const renderCopyButton = () => {
+    return (
+      <Tooltip selector={`copy-message-${randomString(16)}`} content={isCopied ? '已复制' : '复制消息'}>
+        {OperationBtn({
+          innerContent: <IconWrapper>
+            {!isCopied ? <Clipboard className="w-4 h-4" /> : <ClipboardCheck className="w-4 h-4" />}
+          </IconWrapper>,
+          onClick: handleCopyMessage
+        })}
+      </Tooltip>
+    )
+  }
+
   /**
    * Different scenarios have different operation items.
    * @returns comp
    */
+  // 复制整条消息的功能
+  const [isCopied, setIsCopied] = useState(false)
+  const { notify } = Toast
+
+  const handleCopyMessage = useCallback(() => {
+    // 提取消息内容
+    let messageContent = content || ''
+
+    // 如果是代理模式，则提取所有思考和观察内容
+    if (isAgentMode && agent_thoughts && agent_thoughts.length > 0) {
+      // 如果有content，优先使用content
+      if (content && content.trim()) {
+        messageContent = content
+      } else {
+        // 否则使用agent_thoughts中的内容
+        const thoughtsContent = agent_thoughts
+          .map(item => {
+            let itemContent = ''
+            if (item.thought) itemContent += item.thought + '\n'
+            if (item.observation) itemContent += item.observation + '\n'
+            return itemContent
+          })
+          .join('\n')
+
+        messageContent = thoughtsContent
+      }
+    }
+
+    if (!messageContent.trim()) {
+      notify({ type: 'warning', message: '消息内容为空，无法复制', duration: 2000 })
+      return
+    }
+
+    copy(messageContent)
+    setIsCopied(true)
+    notify({ type: 'success', message: '复制成功', duration: 2000 })
+
+    // 2秒后重置复制状态
+    setTimeout(() => {
+      setIsCopied(false)
+    }, 2000)
+  }, [content, agent_thoughts, isAgentMode, notify])
+
   const renderItemOperation = () => {
     const userOperation = () => {
       return feedback?.rating
@@ -130,6 +191,8 @@ const Answer: FC<IAnswerProps> = ({
     return (
       <div className={`${s.itemOperation} flex gap-2`}>
         {userOperation()}
+        {/* 复制按钮只在没有反馈时显示，有反馈时在外部显示 */}
+        {!feedback?.rating && renderCopyButton()}
       </div>
     )
   }
@@ -194,9 +257,12 @@ const Answer: FC<IAnswerProps> = ({
                   ))}
             </div>
             <div className='absolute top-[-14px] right-[-14px] flex flex-row justify-end gap-1'>
+              {/* 没有反馈时，显示赞同/反对和复制按钮 */}
               {!feedbackDisabled && !item.feedbackDisabled && renderItemOperation()}
-              {/* User feedback must be displayed */}
+              {/* 有反馈时，显示反馈状态和复制按钮 */}
               {!feedbackDisabled && renderFeedbackRating(feedback?.rating)}
+              {/* 如果有反馈，则单独显示复制按钮 */}
+              {!feedbackDisabled && feedback?.rating && renderCopyButton()}
             </div>
           </div>
         </div>
