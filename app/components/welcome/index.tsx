@@ -9,7 +9,7 @@ import { AppInfoComp, ChatBtn, EditBtn, FootLogo, PromptTemplate } from './massi
 import type { AppInfo, PromptConfig } from '@/types/app'
 import Toast from '@/app/components/base/toast'
 import Select from '@/app/components/base/select'
-import { DEFAULT_VALUE_MAX_LEN } from '@/config'
+import { DEFAULT_VALUE_MAX_LEN, showEditButtonOnlyWhenEmpty } from '@/config'
 
 // regex to match the {{}} and replace it with a span
 const regex = /\{\{([^}]+)\}\}/g
@@ -184,6 +184,20 @@ const Welcome: FC<IWelcomeProps> = ({
     return true
   }
 
+  // 检查是否有必填参数为空
+  const hasEmptyRequiredInputs = () => {
+    // 如果配置为false，始终显示编辑按钮
+    if (!showEditButtonOnlyWhenEmpty)
+      return true
+
+    // 检查是否有必填参数为空
+    const requiredVars = promptConfig.prompt_variables.filter(v => v.required)
+    if (requiredVars.length === 0)
+      return false
+
+    return requiredVars.some(v => !inputs[v.key])
+  }
+
   const handleChat = () => {
     if (!canChat())
       return
@@ -262,6 +276,10 @@ const Welcome: FC<IWelcomeProps> = ({
   }
 
   const renderHasSetInputsPublic = () => {
+    // 如果没有空的必填参数且配置为只在空时显示，则完全隐藏整个容器
+    if (!hasEmptyRequiredInputs() && canEditInputs)
+      return null
+
     if (!canEditInputs) {
       return (
         <TemplateVarPanel
@@ -306,6 +324,10 @@ const Welcome: FC<IWelcomeProps> = ({
 
   const renderHasSetInputsPrivate = () => {
     if (!canEditInputs || !hasVar)
+      return null
+
+    // 如果没有空的必填参数且配置为只在空时显示，则完全隐藏整个容器
+    if (!hasEmptyRequiredInputs())
       return null
 
     return (
