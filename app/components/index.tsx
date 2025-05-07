@@ -776,7 +776,7 @@ const Main: FC<IMainProps> = () => {
         onShowSideBar={showSidebar}
         onCreateNewChat={() => handleConversationIdChange('-1')}
       />
-      <div className="flex rounded-t-2xl bg-white overflow-hidden">
+      <div className="flex rounded-t-2xl bg-white overflow-hidden max-w-full">
         {/* sidebar */}
         {!isMobile && renderSidebar()}
         {isMobile && isShowSidebar && (
@@ -805,7 +805,7 @@ const Main: FC<IMainProps> = () => {
 
           {
             hasSetInputs && (
-              <div className='relative grow h-[200px] pc:w-[794px] max-w-full mobile:w-full pb-[66px] mx-auto mb-3.5 overflow-hidden'>
+              <div className='relative grow h-[200px] pc:w-[794px] max-w-full w-full pb-[66px] px-4 mx-auto mb-3.5 overflow-hidden'>
                 <div className='h-full overflow-y-auto' ref={chatListDomRef}>
                   <Chat
                     chatList={chatList}
