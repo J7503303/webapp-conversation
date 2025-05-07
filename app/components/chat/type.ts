@@ -107,7 +107,8 @@ export type MessageEnd = {
   id: string
   metadata: {
     retriever_resources?: CitationItem[]
-    annotation_reply: {
+    suggested_questions?: string[]
+    annotation_reply?: {
       id: string
       account: {
         id: string

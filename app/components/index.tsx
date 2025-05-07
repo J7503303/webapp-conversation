@@ -213,6 +213,8 @@ const Main: FC<IMainProps> = () => {
     if (chatListDomRef.current)
       chatListDomRef.current.scrollTop = chatListDomRef.current.scrollHeight
   }, [chatList, currConversationId])
+
+
   // user can not edit inputs if user had send message
   const canEditInputs = !chatList.some(item => item.isAnswer === false) && isNewConversation
   const createNewChat = () => {
@@ -237,13 +239,18 @@ const Main: FC<IMainProps> = () => {
     if (calculatedIntroduction && calculatedPromptVariables)
       calculatedIntroduction = replaceVarWithValues(calculatedIntroduction, promptConfig?.prompt_variables || [], calculatedPromptVariables)
 
+    // 获取开场问题，从appParams中获取
+    const openingQuestions = window.openingQuestions || []
+
     const openStatement = {
       id: `${Date.now()}`,
       content: calculatedIntroduction,
       isAnswer: true,
       feedbackDisabled: true,
       isOpeningStatement: isShowPrompt,
+      suggestedQuestions: openingQuestions, // 添加开场问题
     }
+
     if (calculatedIntroduction)
       return [openStatement]
 
@@ -270,7 +277,10 @@ const Main: FC<IMainProps> = () => {
         const isNotNewConversation = conversations.some(item => item.id === _conversationId)
 
         // fetch new conversation info
-        const { user_input_form, opening_statement: introduction, file_upload, system_parameters }: any = appParams
+        const { user_input_form, opening_statement: introduction, opening_questions, suggested_questions, file_upload, system_parameters }: any = appParams
+        // 保存开场问题到window对象，以便在generateNewChatListWithOpenStatement中使用
+        // chatFlow应用可能使用suggested_questions而不是opening_questions
+        window.openingQuestions = opening_questions || suggested_questions || []
         setLocaleOnClient(APP_INFO.default_language, true)
         setNewConversationInfo({
           name: t('app.chat.newChatDefaultName'),
@@ -636,6 +646,11 @@ const Main: FC<IMainProps> = () => {
         })
       },
       onMessageEnd: (messageEnd) => {
+        // 检查是否有suggested_questions字段
+        if (messageEnd.metadata?.suggested_questions) {
+          responseItem.suggestedQuestions = messageEnd.metadata.suggested_questions;
+        }
+
         if (messageEnd.metadata?.annotation_reply) {
           responseItem.id = messageEnd.id
           responseItem.annotation = ({
@@ -748,6 +763,22 @@ const Main: FC<IMainProps> = () => {
     setChatList(newChatList)
     notify({ type: 'success', message: t('common.api.success') })
   }
+
+  // 监听开场问题点击事件
+  useEffect(() => {
+    const handleSendSuggestedQuestion = (event: any) => {
+      const { question } = event.detail;
+      if (question) {
+        handleSend(question);
+      }
+    };
+
+    window.addEventListener('sendSuggestedQuestion', handleSendSuggestedQuestion);
+
+    return () => {
+      window.removeEventListener('sendSuggestedQuestion', handleSendSuggestedQuestion);
+    };
+  }, [handleSend])
 
   const renderSidebar = () => {
     if (!APP_ID || !APP_INFO || !promptConfig)

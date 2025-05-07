@@ -76,7 +76,7 @@ const Answer: FC<IAnswerProps> = ({
   allToolIcons,
   showAvatar = true,
 }) => {
-  const { id, content, feedback, agent_thoughts, workflowProcess } = item
+  const { id, content, feedback, agent_thoughts, workflowProcess, suggestedQuestions, isOpeningStatement } = item
   const isAgentMode = !!agent_thoughts && agent_thoughts.length > 0
 
   const { t } = useTranslation()
@@ -257,7 +257,27 @@ const Answer: FC<IAnswerProps> = ({
                 : (isAgentMode
                   ? agentModeAnswer
                   : (
-                    <Markdown content={content} />
+                    <>
+                      <Markdown content={content} />
+                      {/* 显示开场问题按钮 */}
+                      {suggestedQuestions && suggestedQuestions.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          {suggestedQuestions.map((question, index) => (
+                            <div
+                              key={index}
+                              className="inline-block mr-2 mb-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg cursor-pointer transition-colors"
+                              onClick={() => {
+                                // 点击开场问题按钮时自动发送该问题
+                                const sendEvent = new CustomEvent('sendSuggestedQuestion', { detail: { question } });
+                                window.dispatchEvent(sendEvent);
+                              }}
+                            >
+                              {question}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   ))}
             </div>
             <div className='absolute top-[-14px] right-[-14px] flex flex-row justify-end gap-1'>
