@@ -17,9 +17,9 @@ export function updateConfig(appId?: string | null, apiKey?: string | null, apiU
   if (apiUrl) API_URL = apiUrl
 }
 export const APP_INFO: AppInfo = {
-  title: '病历生成助手',
+  title: 'AI助手',
   description: '',
-  copyright: '博繁软件',
+  copyright: '',
   privacy_policy: '',
   default_language: 'zh-Hans',
 }
