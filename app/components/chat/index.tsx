@@ -15,7 +15,7 @@ import Toast from '@/app/components/base/toast'
 import ChatImageUploader from '@/app/components/base/image-uploader/chat-image-uploader'
 import ImageList from '@/app/components/base/image-uploader/image-list'
 import { useImageFiles } from '@/app/components/base/image-uploader/hooks'
-import { isShowAvatar, updateAvatarConfig } from '@/config'
+import { isShowAvatar } from '@/config'
 
 export type IChatProps = {
   chatList: ChatItem[]
@@ -74,12 +74,6 @@ const Chat: FC<IChatProps> = ({
     if (controlClearQuery)
       setQuery('')
   }, [controlClearQuery])
-
-  // 初始化时检查 localStorage 中的设置
-  useEffect(() => {
-    // 更新头像显示设置
-    updateAvatarConfig()
-  }, [])
   const {
     files,
     onUpload,

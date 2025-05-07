@@ -4,8 +4,6 @@ import './styles/globals.css'
 import './styles/markdown.scss'
 import './styles/jinja-template.css'
 
-import InitConfig from './init-config'
-
 const LocaleLayout = ({
   children,
 }: {
@@ -17,7 +15,6 @@ const LocaleLayout = ({
       <body className="h-full">
         <div className="overflow-x-auto">
           <div className="w-screen h-screen min-w-[300px]">
-            <InitConfig />
             {children}
           </div>
         </div>

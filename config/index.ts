@@ -34,17 +34,4 @@ export const LOCALE_COOKIE_NAME = 'locale'
 export const DEFAULT_VALUE_MAX_LEN = 48
 
 // 控制聊天界面头像显示
-export let isShowAvatar = true
-
-// 更新头像显示设置
-export function updateAvatarConfig(showAvatar?: boolean) {
-  if (typeof showAvatar === 'boolean')
-    isShowAvatar = showAvatar
-
-  // 从 localStorage 中获取设置
-  if (typeof window !== 'undefined') {
-    const hideAvatar = localStorage.getItem('hide_avatar') === 'true'
-    if (hideAvatar)
-      isShowAvatar = false
-  }
-}
+export const isShowAvatar = false
