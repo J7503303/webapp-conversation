@@ -104,14 +104,19 @@ const Main: FC<IMainProps> = () => {
   const conversationIntroduction = currConversationInfo?.introduction || ''
 
   const handleConversationSwitch = () => {
-    if (!inited)
+    if (!inited) {
       return
+    }
+
+    // 获取实时的会话ID和新会话状态
+    const realConversationId = getCurrConversationId()
+    const realIsNewConversation = realConversationId === '-1'
 
     // update inputs of current conversation
     let notSyncToStateIntroduction = ''
     let notSyncToStateInputs: Record<string, any> | undefined | null = {}
-    if (!isNewConversation) {
-      const item = conversationList.find(item => item.id === currConversationId)
+    if (!realIsNewConversation) {
+      const item = conversationList.find(item => item.id === realConversationId)
       notSyncToStateInputs = item?.inputs || {}
       setCurrInputs(notSyncToStateInputs as any)
       notSyncToStateIntroduction = item?.introduction || ''
@@ -119,43 +124,51 @@ const Main: FC<IMainProps> = () => {
         name: item?.name || '',
         introduction: notSyncToStateIntroduction,
       })
+
+      // 始终加载现有会话的聊天历史记录，不再检查conversationIdChangeBecauseOfNew
+      if (!isResponding) {
+        fetchChatList(realConversationId).then((res: any) => {
+          const { data } = res
+          const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
+
+          data.forEach((item: any) => {
+            newChatList.push({
+              id: `question-${item.id}`,
+              content: item.query,
+              isAnswer: false,
+              message_files: item.message_files?.filter((file: any) => file.belongs_to === 'user') || [],
+
+            })
+            newChatList.push({
+              id: item.id,
+              content: item.answer,
+              agent_thoughts: addFileInfos(item.agent_thoughts ? sortAgentSorts(item.agent_thoughts) : item.agent_thoughts, item.message_files),
+              feedback: item.feedback,
+              isAnswer: true,
+              message_files: item.message_files?.filter((file: any) => file.belongs_to === 'assistant') || [],
+            })
+          })
+          setChatList(newChatList)
+        }).catch(err => {
+          console.error('加载历史记录失败:', err)
+        })
+      }
     }
     else {
       notSyncToStateInputs = newConversationInputs
       setCurrInputs(notSyncToStateInputs)
+
+      if (realIsNewConversation && isChatStarted)
+        setChatList(generateNewChatListWithOpenStatement())
     }
-
-    // update chat list of current conversation
-    if (!isNewConversation && !conversationIdChangeBecauseOfNew && !isResponding) {
-      fetchChatList(currConversationId).then((res: any) => {
-        const { data } = res
-        const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
-
-        data.forEach((item: any) => {
-          newChatList.push({
-            id: `question-${item.id}`,
-            content: item.query,
-            isAnswer: false,
-            message_files: item.message_files?.filter((file: any) => file.belongs_to === 'user') || [],
-
-          })
-          newChatList.push({
-            id: item.id,
-            content: item.answer,
-            agent_thoughts: addFileInfos(item.agent_thoughts ? sortAgentSorts(item.agent_thoughts) : item.agent_thoughts, item.message_files),
-            feedback: item.feedback,
-            isAnswer: true,
-            message_files: item.message_files?.filter((file: any) => file.belongs_to === 'assistant') || [],
-          })
-        })
-        setChatList(newChatList)
-      })
-    }
-
-    if (isNewConversation && isChatStarted)
-      setChatList(generateNewChatListWithOpenStatement())
   }
-  useEffect(handleConversationSwitch, [currConversationId, inited])
+  // 只在currConversationId变化时触发会话切换，不再监听inited状态
+  // 这样可以避免在页面刷新后重复触发会话切换
+  useEffect(() => {
+    if (inited) { // 只在inited为true时才触发
+      handleConversationSwitch()
+    }
+  }, [currConversationId])
 
   const handleConversationIdChange = (id: string) => {
     if (id === '-1') {
@@ -173,7 +186,27 @@ const Main: FC<IMainProps> = () => {
   /*
   * chat info. chat is under conversation.
   */
-  const [chatList, setChatList, getChatList] = useGetState<ChatItem[]>([])
+  // 使用useRef保存上一次的聊天列表，防止意外清空
+  const prevChatListRef = useRef<ChatItem[]>([])
+  const [chatList, _setChatList, getChatList] = useGetState<ChatItem[]>([])
+
+  // 包裹setChatList函数，添加保护机制
+  const setChatList = (newList: ChatItem[]) => {
+
+    // 如果新列表为空，但上一次的列表不为空，则保留上一次的列表
+    // 使用getCurrConversationId()获取实时的会话ID
+    const realIsNewConversation = getCurrConversationId() === '-1'
+    if (newList.length === 0 && prevChatListRef.current.length > 0 && !realIsNewConversation) {
+      return
+    }
+
+    // 保存当前列表作为上一次的列表
+    if (newList.length > 0) {
+      prevChatListRef.current = [...newList]
+    }
+
+    _setChatList(newList)
+  }
   const chatListDomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     // scroll to bottom
@@ -254,10 +287,62 @@ const Main: FC<IMainProps> = () => {
         })
         setConversationList(conversations as ConversationItem[])
 
-        if (isNotNewConversation)
-          setCurrConversationId(_conversationId, APP_ID, false)
+        // 直接加载历史记录，而不是通过设置inited触发handleConversationSwitch
+        if (isNotNewConversation) {
+          // 设置会话ID，并确保会话ID被保存到localStorage
+          setCurrConversationId(_conversationId, APP_ID, true)
+          // 重置conversationIdChangeBecauseOfNew状态
+          setConversationIdChangeBecauseOfNew(false)
 
-        setInited(true)
+          // 直接加载历史记录
+          fetchChatList(_conversationId).then((res: any) => {
+            const { data } = res
+
+            // 找到当前会话项
+            const item = conversations.find(item => item.id === _conversationId)
+            const notSyncToStateInputs = item?.inputs || {}
+            const notSyncToStateIntroduction = item?.introduction || ''
+
+            // 设置会话信息
+            setCurrInputs(notSyncToStateInputs as any)
+            setExistConversationInfo({
+              name: item?.name || '',
+              introduction: notSyncToStateIntroduction,
+            })
+
+            // 创建新的聊天列表
+            const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
+
+            // 添加历史记录
+            data.forEach((item: any) => {
+              newChatList.push({
+                id: `question-${item.id}`,
+                content: item.query,
+                isAnswer: false,
+                message_files: item.message_files?.filter((file: any) => file.belongs_to === 'user') || [],
+              })
+              newChatList.push({
+                id: item.id,
+                content: item.answer,
+                agent_thoughts: addFileInfos(item.agent_thoughts ? sortAgentSorts(item.agent_thoughts) : item.agent_thoughts, item.message_files),
+                feedback: item.feedback,
+                isAnswer: true,
+                message_files: item.message_files?.filter((file: any) => file.belongs_to === 'assistant') || [],
+              })
+            })
+
+            // 设置聊天列表
+            setChatList(newChatList)
+
+            // 最后设置inited状态
+            setInited(true)
+          }).catch(err => {
+            console.error('加载历史记录失败:', err)
+            setInited(true)
+          })
+        } else {
+          setInited(true)
+        }
 
         // 处理URL参数中的inputs
         const urlInputs = getInputsFromUrlParams()

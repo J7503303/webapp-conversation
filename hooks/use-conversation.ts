@@ -21,12 +21,18 @@ function useConversation() {
   }
 
   const getConversationIdFromStorage = (appId: string) => {
-    const conversationIdInfo = globalThis.localStorage?.getItem(storageConversationIdKey) ? JSON.parse(globalThis.localStorage?.getItem(storageConversationIdKey) || '') : {}
-    const id = conversationIdInfo[appId]
-    return id
+    try {
+      const conversationIdInfo = globalThis.localStorage?.getItem(storageConversationIdKey) ? JSON.parse(globalThis.localStorage?.getItem(storageConversationIdKey) || '') : {}
+      const id = conversationIdInfo[appId]
+      return id
+    } catch (error) {
+      console.error('从本地存储获取会话ID失败:', error)
+      return undefined
+    }
   }
 
-  const isNewConversation = currConversationId === '-1'
+  // 使用useGetState来获取实时的currConversationId值
+  const isNewConversation = getCurrConversationId() === '-1'
   // input can be updated by user
   const [newConversationInputs, setNewConversationInputs] = useState<Record<string, any> | null>(null)
   const resetNewConversationInputs = () => {

@@ -7,7 +7,7 @@ import RemarkGfm from 'remark-gfm'
 import SyntaxHighlighter from 'react-syntax-highlighter'
 import { atelierHeathLight } from 'react-syntax-highlighter/dist/esm/styles/hljs'
 import { replaceVarWithValues } from '@/utils/prompt'
-import { useState, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import copy from 'copy-to-clipboard'
 import { Clipboard, ClipboardCheck } from '@/app/components/base/icons/line/files'
 import Toast from '@/app/components/base/toast'
@@ -52,9 +52,17 @@ function CopyableParagraph({ children, content }: CopyableParagraphProps) {
     }, 2000)
   }, [content, notify])
 
+  // 检查children是否包含标题元素
+  const containsHeading = React.Children.toArray(children).some(
+    child => React.isValidElement(child) &&
+    (child.type === 'h1' || child.type === 'h2' || child.type === 'h3' ||
+     child.type === 'h4' || child.type === 'h5' || child.type === 'h6')
+  )
+
   return (
     <div className="relative group">
-      <p>{children}</p>
+      {/* 如果包含标题元素，直接渲染children，否则用p标签包裹 */}
+      {containsHeading ? children : <p>{children}</p>}
       <div
         className="absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200"
         style={{

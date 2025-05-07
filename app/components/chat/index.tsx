@@ -118,6 +118,8 @@ const Chat: FC<IChatProps> = ({
     }
   }
 
+
+
   return (
     <div className={cn(!feedbackDisabled && 'px-3.5', 'h-full')}>
       {/* Chat List */}
