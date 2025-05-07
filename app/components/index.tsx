@@ -22,6 +22,7 @@ import AppUnavailable from '@/app/components/app-unavailable'
 import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate } from '@/config'
 import type { Annotation as AnnotationType } from '@/types/log'
 import { addFileInfos, sortAgentSorts } from '@/utils/tools'
+import { getInputsFromUrlParams } from '@/utils/url-params'
 
 export type IMainProps = {
   params: any
@@ -257,6 +258,47 @@ const Main: FC<IMainProps> = () => {
           setCurrConversationId(_conversationId, APP_ID, false)
 
         setInited(true)
+
+        // 处理URL参数中的inputs
+        const urlInputs = getInputsFromUrlParams()
+
+        if (Object.keys(urlInputs).length > 0 && prompt_variables.length > 0) {
+          // 将URL参数填充到输入框中
+          const processedInputs: Record<string, any> = {}
+
+          // 遍历所有prompt变量
+          prompt_variables.forEach(variable => {
+            // 检查URL参数中是否有对应的值
+            if (urlInputs[variable.key]) {
+              // 根据变量类型处理值
+              if (variable.type === 'number') {
+                // 对于数字类型，尝试转换为数字
+                processedInputs[variable.key] = Number(urlInputs[variable.key])
+              } else {
+                // 对于其他类型，直接使用字符串值
+                processedInputs[variable.key] = urlInputs[variable.key]
+              }
+            }
+          })
+
+          // 如果有有效的输入参数，则设置到currInputs中
+          if (Object.keys(processedInputs).length > 0) {
+            setCurrInputs(processedInputs)
+
+            // 对于workflow应用，自动开始聊天
+            // 检查是否所有必填字段都已填写
+            const allRequiredFilled = prompt_variables
+              .filter(v => v.required)
+              .every(v => processedInputs[v.key] !== undefined && processedInputs[v.key] !== '')
+
+            if (allRequiredFilled) {
+              // 自动开始聊天
+              setTimeout(() => {
+                handleStartChat(processedInputs)
+              }, 500) // 延迟一点时间确保UI已经渲染完成
+            }
+          }
+        }
       }
       catch (e: any) {
         if (e.status === 404) {
@@ -687,6 +729,8 @@ const Main: FC<IMainProps> = () => {
                     isResponding={isResponding}
                     checkCanSend={checkCanSend}
                     visionConfig={visionConfig}
+                    // 对于workflow应用，隐藏输入框
+                    isHideSendInput={window.location.pathname.includes('/workflow/')}
                   />
                 </div>
               </div>)
