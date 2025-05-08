@@ -19,7 +19,7 @@ import useBreakpoints, { MediaType } from '@/hooks/use-breakpoints'
 import Loading from '@/app/components/base/loading'
 import { replaceVarWithValues, userInputsFormToPromptVariables } from '@/utils/prompt'
 import AppUnavailable from '@/app/components/app-unavailable'
-import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate } from '@/config'
+import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate, isShowSidebar as configIsShowSidebar } from '@/config'
 import type { Annotation as AnnotationType } from '@/types/log'
 import { addFileInfos, sortAgentSorts } from '@/utils/tools'
 import { getInputsFromUrlParams } from '@/utils/url-params'
@@ -808,9 +808,9 @@ const Main: FC<IMainProps> = () => {
         onCreateNewChat={() => handleConversationIdChange('-1')}
       />
       <div className="flex rounded-t-2xl bg-white overflow-hidden max-w-full">
-        {/* sidebar */}
-        {!isMobile && renderSidebar()}
-        {isMobile && isShowSidebar && (
+        {/* sidebar - 根据配置决定是否显示 */}
+        {configIsShowSidebar && !isMobile && renderSidebar()}
+        {configIsShowSidebar && isMobile && isShowSidebar && (
           <div className='fixed inset-0 z-50'
             style={{ backgroundColor: 'rgba(35, 56, 118, 0.2)' }}
             onClick={hideSidebar}

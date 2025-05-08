@@ -5,6 +5,7 @@ import {
   PencilSquareIcon,
 } from '@heroicons/react/24/solid'
 import AppIcon from '@/app/components/base/app-icon'
+import { isShowSidebar as configIsShowSidebar } from '@/config'
 export type IHeaderProps = {
   title: string
   isMobile?: boolean
@@ -19,7 +20,7 @@ const Header: FC<IHeaderProps> = ({
 }) => {
   return (
     <div className="shrink-0 flex items-center justify-between h-12 px-3 bg-gray-100">
-      {isMobile
+      {isMobile && configIsShowSidebar
         ? (
           <div
             className='flex items-center justify-center h-8 w-8 cursor-pointer'
