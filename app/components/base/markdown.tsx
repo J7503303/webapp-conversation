@@ -13,6 +13,7 @@ import { Clipboard, ClipboardCheck } from '@/app/components/base/icons/line/file
 import Toast from '@/app/components/base/toast'
 import Tooltip from '@/app/components/base/tooltip'
 import { randomString } from '@/utils/string'
+import { isOnlyParagraphCopyable } from '@/config'
 
 // 处理Jinja2模板语法，防止被Markdown解析器转义
 function preprocessJinjaTemplates(content: string): string {
@@ -30,9 +31,10 @@ function preprocessJinjaTemplates(content: string): string {
 interface CopyableParagraphProps {
   children: React.ReactNode
   content: string
+  isHeading?: boolean
 }
 
-function CopyableParagraph({ children, content }: CopyableParagraphProps) {
+function CopyableParagraph({ children, content, isHeading = false }: CopyableParagraphProps) {
   const [isCopied, setIsCopied] = useState(false)
   const { notify } = Toast
   // 生成唯一的选择器ID
@@ -63,35 +65,38 @@ function CopyableParagraph({ children, content }: CopyableParagraphProps) {
     <div className="relative group">
       {/* 如果包含标题元素，直接渲染children，否则用p标签包裹 */}
       {containsHeading ? children : <p>{children}</p>}
-      <div
-        className="absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-        style={{
-          position: 'absolute',
-          right: '-2px',  // 将图标定位在段落右侧的外部
-          top: '2px',
-          zIndex: 10
-        }}
-      >
-        <Tooltip
-          selector={tooltipId}
-          content={isCopied ? '已复制' : '复制段落内容'}
-          position="right"
-          className="!z-20" /* 增加z-index确保Tooltip在最上层 */
+      {/* 根据配置和元素类型决定是否显示复制图标 */}
+      {(!isHeading || !isOnlyParagraphCopyable) && (
+        <div
+          className="absolute opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          style={{
+            position: 'absolute',
+            right: '-2px',  // 将图标定位在段落右侧的外部
+            top: '2px',
+            zIndex: 10
+          }}
         >
-          <div
-            className="w-6 h-6 flex items-center justify-center cursor-pointer bg-white rounded-md shadow-sm"
-            onClick={handleCopy}
+          <Tooltip
+            selector={tooltipId}
+            content={isCopied ? '已复制' : '复制段落内容'}
+            position="right"
+            className="!z-20" /* 增加z-index确保Tooltip在最上层 */
           >
-            {!isCopied ? (
-              <Clipboard
-                className="w-4 h-4 text-gray-500 hover:text-gray-700"
-              />
-            ) : (
-              <ClipboardCheck className="w-4 h-4 text-green-500" />
-            )}
-          </div>
-        </Tooltip>
-      </div>
+            <div
+              className="w-6 h-6 flex items-center justify-center cursor-pointer bg-white rounded-md shadow-sm"
+              onClick={handleCopy}
+            >
+              {!isCopied ? (
+                <Clipboard
+                  className="w-4 h-4 text-gray-500 hover:text-gray-700"
+                />
+              ) : (
+                <ClipboardCheck className="w-4 h-4 text-green-500" />
+              )}
+            </div>
+          </Tooltip>
+        </div>
+      )}
     </div>
   )
 }
@@ -163,7 +168,7 @@ export function Markdown(props: { content: string }) {
           h1: ({ node, children, ...props }) => {
             const textContent = children ? children.toString() : ''
             return (
-              <CopyableParagraph content={textContent}>
+              <CopyableParagraph content={textContent} isHeading={true}>
                 <h1 {...props}>{children}</h1>
               </CopyableParagraph>
             )
@@ -171,7 +176,7 @@ export function Markdown(props: { content: string }) {
           h2: ({ node, children, ...props }) => {
             const textContent = children ? children.toString() : ''
             return (
-              <CopyableParagraph content={textContent}>
+              <CopyableParagraph content={textContent} isHeading={true}>
                 <h2 {...props}>{children}</h2>
               </CopyableParagraph>
             )
@@ -179,7 +184,7 @@ export function Markdown(props: { content: string }) {
           h3: ({ node, children, ...props }) => {
             const textContent = children ? children.toString() : ''
             return (
-              <CopyableParagraph content={textContent}>
+              <CopyableParagraph content={textContent} isHeading={true}>
                 <h3 {...props}>{children}</h3>
               </CopyableParagraph>
             )
