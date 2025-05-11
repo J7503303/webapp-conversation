@@ -93,6 +93,7 @@ const Main: FC<IMainProps> = () => {
     // parse variables in introduction
     setChatList(generateNewChatListWithOpenStatement('', inputs))
   }
+  // 计算hasSetInputs
   const hasSetInputs = (() => {
     if (!isNewConversation)
       return true
@@ -111,6 +112,13 @@ const Main: FC<IMainProps> = () => {
     // 获取实时的会话ID和新会话状态
     const realConversationId = getCurrConversationId()
     const realIsNewConversation = realConversationId === '-1'
+    console.log('切换会话，当前会话ID:', realConversationId, '是否新会话:', realIsNewConversation)
+
+    // 如果已经从localStorage恢复了聊天列表，则不再执行会话切换逻辑
+    if (getRestoredFromLocalStorage()) {
+      console.log('已经从localStorage恢复了聊天列表，不再执行会话切换逻辑')
+      return
+    }
 
     // update inputs of current conversation
     let notSyncToStateIntroduction = ''
@@ -127,6 +135,7 @@ const Main: FC<IMainProps> = () => {
 
       // 只有在没有从localStorage恢复聊天列表的情况下，才从服务器获取历史记录
       if (!isResponding && !getRestoredFromLocalStorage()) {
+        console.log('从服务器获取历史记录，会话ID:', realConversationId)
         fetchChatList(realConversationId).then((res: any) => {
           const { data } = res
           const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
@@ -148,7 +157,10 @@ const Main: FC<IMainProps> = () => {
               message_files: item.message_files?.filter((file: any) => file.belongs_to === 'assistant') || [],
             })
           })
+          console.log('从服务器获取历史记录成功，设置聊天列表，项数:', newChatList.length)
           setChatList(newChatList)
+          // 确保聊天已开始，这样在刷新页面后能正确显示聊天内容
+          setChatStarted()
         }).catch(err => {
           console.error('加载历史记录失败:', err)
         })
@@ -158,27 +170,43 @@ const Main: FC<IMainProps> = () => {
       notSyncToStateInputs = newConversationInputs
       setCurrInputs(notSyncToStateInputs)
 
-      if (realIsNewConversation && isChatStarted)
+      if (realIsNewConversation && isChatStarted) {
+        console.log('新会话且聊天已开始，创建新的聊天列表')
         setChatList(generateNewChatListWithOpenStatement())
+      }
     }
   }
   // 只在currConversationId变化时触发会话切换，不再监听inited状态
   // 这样可以避免在页面刷新后重复触发会话切换
+  // 创建一个标记，记录是否是页面加载后的第一次执行
+  const isFirstRun = useRef(true)
+
   useEffect(() => {
+    // 如果是页面加载后的第一次执行，则跳过
+    // 因为页面加载时已经尝试从localStorage恢复聊天列表了
+    if (isFirstRun.current) {
+      isFirstRun.current = false
+      return
+    }
+
     if (inited) { // 只在inited为true时才触发
       // 先尝试从localStorage恢复聊天列表
       const conversationId = getCurrConversationId()
+      console.log('会话ID变化，当前会话ID:', conversationId)
 
       // 如果已经从localStorage恢复了聊天列表，则不再执行会话切换逻辑
       if (getRestoredFromLocalStorage()) {
+        console.log('已经从localStorage恢复了聊天列表，不再执行会话切换逻辑')
         return
       }
 
       // 尝试从localStorage恢复聊天列表
       const restored = restoreChatListFromLocalStorage(conversationId)
+      console.log('尝试从localStorage恢复聊天列表结果:', restored ? '成功' : '失败')
 
       // 如果没有从localStorage恢复成功，则执行正常的会话切换逻辑
       if (!restored) {
+        console.log('没有从localStorage恢复成功，执行正常的会话切换逻辑')
         handleConversationSwitch()
       }
     }
@@ -206,6 +234,12 @@ const Main: FC<IMainProps> = () => {
 
   // 包裹setChatList函数，添加保护机制
   const setChatList = (newList: ChatItem[]) => {
+    // 如果已经从localStorage恢复了聊天列表，且新列表为空或只有开场白，则不覆盖已恢复的聊天列表
+    if (getRestoredFromLocalStorage() && (newList.length === 0 || newList.length === 1)) {
+      console.log('已经从localStorage恢复了聊天列表，不覆盖')
+      return
+    }
+
     // 如果新列表为空，但上一次的列表不为空，则保留上一次的列表
     // 使用getCurrConversationId()获取实时的会话ID
     const realIsNewConversation = getCurrConversationId() === '-1'
@@ -224,6 +258,7 @@ const Main: FC<IMainProps> = () => {
           const conversationId = getCurrConversationId()
           if (conversationId !== '-1') {
             localStorage.setItem(`chatList_${conversationId}`, JSON.stringify(newList))
+            console.log('保存聊天列表到localStorage，会话ID:', conversationId, '项数:', newList.length)
           }
         } catch (e) {
           console.error('Failed to save chat list to localStorage:', e)
@@ -231,6 +266,7 @@ const Main: FC<IMainProps> = () => {
       }
     }
 
+    console.log('设置聊天列表，项数:', newList.length)
     _setChatList(newList)
   }
 
@@ -247,6 +283,9 @@ const Main: FC<IMainProps> = () => {
           if (parsedChatList && parsedChatList.length > 0) {
             _setChatList(parsedChatList) // 直接使用_setChatList避免循环
             setRestoredFromLocalStorage(true)
+            // 设置为已开始聊天，确保聊天列表能正确显示
+            setChatStarted()
+            console.log('从 localStorage 恢复聊天列表成功，设置为已开始聊天')
             return true
           }
         }
@@ -260,8 +299,67 @@ const Main: FC<IMainProps> = () => {
 
   // 在页面加载时恢复聊天列表
   useEffect(() => {
-    const conversationId = getCurrConversationId()
-    restoreChatListFromLocalStorage(conversationId)
+    // 先从localStorage获取会话ID
+    const storedConversationId = getConversationIdFromStorage(APP_ID)
+    console.log('页面加载时从localStorage获取的会话ID:', storedConversationId)
+
+    // 如果有有效的会话ID，先设置当前会话ID
+    if (storedConversationId && storedConversationId !== '-1') {
+      // 设置当前会话ID，但不再写入localStorage
+      setCurrConversationId(storedConversationId, APP_ID, false)
+      console.log('设置当前会话ID为存储的会话ID:', storedConversationId)
+
+      // 然后从localStorage恢复聊天列表
+      const restored = restoreChatListFromLocalStorage(storedConversationId)
+      console.log('页面加载时恢复聊天列表结果:', restored ? '成功' : '失败')
+
+      // 如果恢复成功，设置为已开始聊天
+      if (restored) {
+        setChatStarted()
+        console.log('页面加载时恢复聊天列表成功，设置为已开始聊天')
+
+        // 将当前会话添加到会话列表中，确保会话列表中有当前会话
+        if (!conversationList.some(item => item.id === storedConversationId)) {
+          console.log('将当前会话添加到会话列表中:', storedConversationId)
+          setConversationList(produce(conversationList, (draft) => {
+            draft.unshift({
+              id: storedConversationId,
+              name: t('app.chat.restoredConversation'),
+              inputs: {},
+              introduction: '',
+            })
+          }))
+        }
+      }
+    } else {
+      // 如果没有有效的会话ID，尝试使用当前会话ID
+      const conversationId = getCurrConversationId()
+      console.log('没有有效的存储会话ID，尝试使用当前会话ID:', conversationId)
+
+      if (conversationId && conversationId !== '-1') {
+        const restored = restoreChatListFromLocalStorage(conversationId)
+        console.log('页面加载时恢复聊天列表结果:', restored ? '成功' : '失败')
+
+        // 如果恢复成功，设置为已开始聊天
+        if (restored) {
+          setChatStarted()
+          console.log('页面加载时恢复聊天列表成功，设置为已开始聊天')
+
+          // 将当前会话添加到会话列表中，确保会话列表中有当前会话
+          if (!conversationList.some(item => item.id === conversationId)) {
+            console.log('将当前会话添加到会话列表中:', conversationId)
+            setConversationList(produce(conversationList, (draft) => {
+              draft.unshift({
+                id: conversationId,
+                name: t('app.chat.restoredConversation'),
+                inputs: {},
+                introduction: '',
+              })
+            }))
+          }
+        }
+      }
+    }
   }, []) // 空依赖数组表示只在页面加载时执行一次
   const chatListDomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -672,7 +770,27 @@ const Main: FC<IMainProps> = () => {
         resetNewConversationInputs()
         // 不再调用setChatNotStarted()，以保留聊天状态
         // setChatNotStarted()
+
+        // 先保存当前聊天列表到新的会话ID下
+        try {
+          if (tempNewConversationId && tempNewConversationId !== '-1') {
+            const currentChatList = getChatList()
+            if (currentChatList.length > 0) {
+              localStorage.setItem(`chatList_${tempNewConversationId}`, JSON.stringify(currentChatList))
+              console.log('聊天完成，保存聊天列表到新会话ID:', tempNewConversationId)
+            }
+          }
+        } catch (e) {
+          console.error('保存聊天列表到新会话ID失败:', e)
+        }
+
+        // 然后设置新的会话ID
         setCurrConversationId(tempNewConversationId, APP_ID, true)
+
+        // 确保聊天已开始，这样在刷新页面后能正确显示聊天内容
+        setChatStarted()
+        console.log('聊天完成，设置为已开始聊天')
+
         setRespondingFalse()
       },
       onFile(file) {
@@ -746,6 +864,22 @@ const Main: FC<IMainProps> = () => {
               })
             })
           setChatList(newListWithAnswer)
+
+          // 确保聊天已开始，这样在刷新页面后能正确显示聊天内容
+          setChatStarted()
+          console.log('消息结束，设置为已开始聊天')
+
+          // 确保在消息结束时立即保存聊天列表
+          try {
+            const conversationId = getCurrConversationId()
+            if (conversationId && conversationId !== '-1') {
+              localStorage.setItem(`chatList_${conversationId}`, JSON.stringify(newListWithAnswer))
+              console.log('消息结束时保存聊天列表到:', conversationId)
+            }
+          } catch (e) {
+            console.error('消息结束时保存聊天列表失败:', e)
+          }
+
           return
         }
         // not support show citation
@@ -759,6 +893,21 @@ const Main: FC<IMainProps> = () => {
             draft.push({ ...responseItem })
           })
         setChatList(newListWithAnswer)
+
+        // 确保聊天已开始，这样在刷新页面后能正确显示聊天内容
+        setChatStarted()
+        console.log('消息结束，设置为已开始聊天')
+
+        // 确保在消息结束时立即保存聊天列表
+        try {
+          const conversationId = getCurrConversationId()
+          if (conversationId && conversationId !== '-1') {
+            localStorage.setItem(`chatList_${conversationId}`, JSON.stringify(newListWithAnswer))
+            console.log('消息结束时保存聊天列表到:', conversationId)
+          }
+        } catch (e) {
+          console.error('消息结束时保存聊天列表失败:', e)
+        }
       },
       onMessageReplace: (messageReplace) => {
         setChatList(produce(
