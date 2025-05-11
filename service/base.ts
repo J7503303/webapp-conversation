@@ -12,12 +12,23 @@ const ContentType = {
   download: 'application/octet-stream', // for download
 }
 
+// 获取URL参数中的sys.user_id
+const getSysUserId = () => {
+  if (typeof window === 'undefined')
+    return null
+
+  const urlParams = new URLSearchParams(window.location.search)
+  return urlParams.get('sys.user_id')
+}
+
 const baseOptions = {
   method: 'GET',
   mode: 'cors',
   credentials: 'include', // always send cookies、HTTP Basic authentication.
   headers: new Headers({
     'Content-Type': ContentType.json,
+    // 如果URL参数中有sys.user_id，则添加到请求头中
+    ...getSysUserId() ? { 'x-sys-user-id': getSysUserId() } : {},
   }),
   redirect: 'follow',
 }

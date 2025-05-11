@@ -258,7 +258,9 @@ const Answer: FC<IAnswerProps> = ({
                   ? agentModeAnswer
                   : (
                     <>
-                      <Markdown content={content} />
+                      {/* 显示开场白内容 - 始终显示，即使内容为空 */}
+                      <Markdown content={content || ''} />
+
                       {/* 显示开场问题按钮 */}
                       {suggestedQuestions && suggestedQuestions.length > 0 && (
                         <div className="mt-4 space-y-2">

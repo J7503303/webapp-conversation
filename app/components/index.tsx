@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
 'use client'
 import type { FC } from 'react'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import produce, { setAutoFreeze } from 'immer'
 import { useBoolean, useGetState } from 'ahooks'
@@ -125,8 +125,8 @@ const Main: FC<IMainProps> = () => {
         introduction: notSyncToStateIntroduction,
       })
 
-      // 始终加载现有会话的聊天历史记录，不再检查conversationIdChangeBecauseOfNew
-      if (!isResponding) {
+      // 只有在没有从localStorage恢复聊天列表的情况下，才从服务器获取历史记录
+      if (!isResponding && !getRestoredFromLocalStorage()) {
         fetchChatList(realConversationId).then((res: any) => {
           const { data } = res
           const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
@@ -166,7 +166,21 @@ const Main: FC<IMainProps> = () => {
   // 这样可以避免在页面刷新后重复触发会话切换
   useEffect(() => {
     if (inited) { // 只在inited为true时才触发
-      handleConversationSwitch()
+      // 先尝试从localStorage恢复聊天列表
+      const conversationId = getCurrConversationId()
+
+      // 如果已经从localStorage恢复了聊天列表，则不再执行会话切换逻辑
+      if (getRestoredFromLocalStorage()) {
+        return
+      }
+
+      // 尝试从localStorage恢复聊天列表
+      const restored = restoreChatListFromLocalStorage(conversationId)
+
+      // 如果没有从localStorage恢复成功，则执行正常的会话切换逻辑
+      if (!restored) {
+        handleConversationSwitch()
+      }
     }
   }, [currConversationId])
 
@@ -192,7 +206,6 @@ const Main: FC<IMainProps> = () => {
 
   // 包裹setChatList函数，添加保护机制
   const setChatList = (newList: ChatItem[]) => {
-
     // 如果新列表为空，但上一次的列表不为空，则保留上一次的列表
     // 使用getCurrConversationId()获取实时的会话ID
     const realIsNewConversation = getCurrConversationId() === '-1'
@@ -203,10 +216,53 @@ const Main: FC<IMainProps> = () => {
     // 保存当前列表作为上一次的列表
     if (newList.length > 0) {
       prevChatListRef.current = [...newList]
+
+      // 如果当前列表不是从localStorage恢复的，则保存到localStorage
+      // 或者如果列表长度大于1（即不只是开场白），也保存到localStorage
+      if (!getRestoredFromLocalStorage() || newList.length > 1) {
+        try {
+          const conversationId = getCurrConversationId()
+          if (conversationId !== '-1') {
+            localStorage.setItem(`chatList_${conversationId}`, JSON.stringify(newList))
+          }
+        } catch (e) {
+          console.error('Failed to save chat list to localStorage:', e)
+        }
+      }
     }
 
     _setChatList(newList)
   }
+
+  // 在页面加载时恢复聊天列表
+  const [restoredFromLocalStorage, setRestoredFromLocalStorage, getRestoredFromLocalStorage] = useGetState(false)
+
+  // 从 localStorage 恢复聊天列表的函数
+  const restoreChatListFromLocalStorage = (conversationId: string) => {
+    try {
+      if (conversationId !== '-1') {
+        const savedChatList = localStorage.getItem(`chatList_${conversationId}`)
+        if (savedChatList) {
+          const parsedChatList = JSON.parse(savedChatList)
+          if (parsedChatList && parsedChatList.length > 0) {
+            _setChatList(parsedChatList) // 直接使用_setChatList避免循环
+            setRestoredFromLocalStorage(true)
+            return true
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to restore chat list from localStorage:', e)
+    }
+    setRestoredFromLocalStorage(false)
+    return false
+  }
+
+  // 在页面加载时恢复聊天列表
+  useEffect(() => {
+    const conversationId = getCurrConversationId()
+    restoreChatListFromLocalStorage(conversationId)
+  }, []) // 空依赖数组表示只在页面加载时执行一次
   const chatListDomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     // scroll to bottom
@@ -234,27 +290,35 @@ const Main: FC<IMainProps> = () => {
 
   // sometime introduction is not applied to state
   const generateNewChatListWithOpenStatement = (introduction?: string, inputs?: Record<string, any> | null) => {
+    // 确保有开场白，如果没有传入则使用默认值
+    // 使用appParams中的opening_statement作为默认值
     let calculatedIntroduction = introduction || conversationIntroduction || ''
     const calculatedPromptVariables = inputs || currInputs || null
+
+    // 如果开场白为空，尝试使用window.openingStatement
+    if (!calculatedIntroduction && window.openingStatement) {
+      calculatedIntroduction = window.openingStatement
+    }
+
+    // 替换开场白中的变量
     if (calculatedIntroduction && calculatedPromptVariables)
       calculatedIntroduction = replaceVarWithValues(calculatedIntroduction, promptConfig?.prompt_variables || [], calculatedPromptVariables)
 
-    // 获取开场问题，从appParams中获取
+    // 获取开场问题，从全局变量中获取
     const openingQuestions = window.openingQuestions || []
 
+    // 创建开场白对象
     const openStatement = {
       id: `${Date.now()}`,
       content: calculatedIntroduction,
       isAnswer: true,
       feedbackDisabled: true,
-      isOpeningStatement: isShowPrompt,
+      isOpeningStatement: true, // 始终显示开场白，不使用isShowPrompt
       suggestedQuestions: openingQuestions, // 添加开场问题
     }
 
-    if (calculatedIntroduction)
-      return [openStatement]
-
-    return []
+    // 始终返回开场白，即使内容为空
+    return [openStatement]
   }
 
   // init
@@ -278,8 +342,9 @@ const Main: FC<IMainProps> = () => {
 
         // fetch new conversation info
         const { user_input_form, opening_statement: introduction, opening_questions, suggested_questions, file_upload, system_parameters }: any = appParams
-        // 保存开场问题到window对象，以便在generateNewChatListWithOpenStatement中使用
+        // 保存开场白和开场问题到window对象，以便在generateNewChatListWithOpenStatement中使用
         // chatFlow应用可能使用suggested_questions而不是opening_questions
+        window.openingStatement = introduction || ''
         window.openingQuestions = opening_questions || suggested_questions || []
         setLocaleOnClient(APP_INFO.default_language, true)
         setNewConversationInfo({
@@ -304,53 +369,65 @@ const Main: FC<IMainProps> = () => {
           // 重置conversationIdChangeBecauseOfNew状态
           setConversationIdChangeBecauseOfNew(false)
 
-          // 直接加载历史记录
-          fetchChatList(_conversationId).then((res: any) => {
-            const { data } = res
+          // 找到当前会话项
+          const item = conversations.find(item => item.id === _conversationId)
+          const notSyncToStateInputs = item?.inputs || {}
+          const notSyncToStateIntroduction = item?.introduction || ''
 
-            // 找到当前会话项
-            const item = conversations.find(item => item.id === _conversationId)
-            const notSyncToStateInputs = item?.inputs || {}
-            const notSyncToStateIntroduction = item?.introduction || ''
-
-            // 设置会话信息
-            setCurrInputs(notSyncToStateInputs as any)
-            setExistConversationInfo({
-              name: item?.name || '',
-              introduction: notSyncToStateIntroduction,
-            })
-
-            // 创建新的聊天列表
-            const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
-
-            // 添加历史记录
-            data.forEach((item: any) => {
-              newChatList.push({
-                id: `question-${item.id}`,
-                content: item.query,
-                isAnswer: false,
-                message_files: item.message_files?.filter((file: any) => file.belongs_to === 'user') || [],
-              })
-              newChatList.push({
-                id: item.id,
-                content: item.answer,
-                agent_thoughts: addFileInfos(item.agent_thoughts ? sortAgentSorts(item.agent_thoughts) : item.agent_thoughts, item.message_files),
-                feedback: item.feedback,
-                isAnswer: true,
-                message_files: item.message_files?.filter((file: any) => file.belongs_to === 'assistant') || [],
-              })
-            })
-
-            // 设置聊天列表
-            setChatList(newChatList)
-
-            // 最后设置inited状态
-            setInited(true)
-          }).catch(err => {
-            console.error('加载历史记录失败:', err)
-            setInited(true)
+          // 设置会话信息
+          setCurrInputs(notSyncToStateInputs as any)
+          setExistConversationInfo({
+            name: item?.name || '',
+            introduction: notSyncToStateIntroduction,
           })
+
+          // 尝试从localStorage恢复聊天列表
+          const restored = restoreChatListFromLocalStorage(_conversationId)
+
+          // 如果没有从localStorage恢复成功，则从服务器获取历史记录
+          if (!restored) {
+            console.log('No chat list in localStorage, fetching from server...')
+            // 直接加载历史记录
+            fetchChatList(_conversationId).then((res: any) => {
+              const { data } = res
+
+              // 创建新的聊天列表
+              const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
+
+              // 添加历史记录
+              data.forEach((item: any) => {
+                newChatList.push({
+                  id: `question-${item.id}`,
+                  content: item.query,
+                  isAnswer: false,
+                  message_files: item.message_files?.filter((file: any) => file.belongs_to === 'user') || [],
+                })
+                newChatList.push({
+                  id: item.id,
+                  content: item.answer,
+                  agent_thoughts: addFileInfos(item.agent_thoughts ? sortAgentSorts(item.agent_thoughts) : item.agent_thoughts, item.message_files),
+                  feedback: item.feedback,
+                  isAnswer: true,
+                  message_files: item.message_files?.filter((file: any) => file.belongs_to === 'assistant') || [],
+                })
+              })
+
+              // 设置聊天列表
+              setChatList(newChatList)
+            }).catch(err => {
+              console.error('加载历史记录失败:', err)
+            })
+          }
+
+          // 设置inited状态
+          setInited(true)
         } else {
+                  // 对于新会话，直接创建包含开场白和开场问题的聊天列表
+          const newChatList = generateNewChatListWithOpenStatement(introduction, null)
+          console.log('Creating new chat list for new conversation:', newChatList)
+          if (newChatList.length > 0) {
+            setChatList(newChatList)
+          }
           setInited(true)
         }
 
@@ -471,7 +548,7 @@ const Main: FC<IMainProps> = () => {
     }
   }
 
-  const handleSend = async (message: string, files?: VisionFile[]) => {
+  const handleSend = useCallback(async (message: string, files?: VisionFile[]) => {
     if (isResponding) {
       notify({ type: 'info', message: t('app.errorMessage.waitForResponse') })
       return
@@ -593,7 +670,8 @@ const Main: FC<IMainProps> = () => {
         }
         setConversationIdChangeBecauseOfNew(false)
         resetNewConversationInputs()
-        setChatNotStarted()
+        // 不再调用setChatNotStarted()，以保留聊天状态
+        // setChatNotStarted()
         setCurrConversationId(tempNewConversationId, APP_ID, true)
         setRespondingFalse()
       },
@@ -747,7 +825,7 @@ const Main: FC<IMainProps> = () => {
         }))
       },
     })
-  }
+  }, [isResponding, currInputs, isNewConversation, currConversationId, visionConfig, getChatList, setChatList, getConversationIdChangeBecauseOfNew, setConversationIdChangeBecauseOfNew, resetNewConversationInputs, setChatNotStarted, setCurrConversationId, setRespondingFalse, notify, t, restoreChatListFromLocalStorage, getRestoredFromLocalStorage])
 
   const handleFeedback = async (messageId: string, feedback: Feedbacktype) => {
     await updateFeedback({ url: `/messages/${messageId}/feedbacks`, body: { rating: feedback.rating } })
