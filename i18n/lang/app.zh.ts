@@ -3,6 +3,12 @@ const translation = {
     welcome: '欢迎使用',
     appUnavailable: '应用不可用',
     appUnkonwError: '应用不可用',
+    operation: {
+      send: '发送',
+      lineBreak: '换行',
+      recording: '录音中...',
+      startRecording: '开始语音输入',
+    },
   },
   chat: {
     newChat: '新对话',

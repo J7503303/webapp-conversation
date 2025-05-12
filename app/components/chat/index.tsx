@@ -7,6 +7,7 @@ import Textarea from 'rc-textarea'
 import s from './style.module.css'
 import Answer from './answer'
 import Question from './question'
+import VoiceRecorder from './voice-recorder'
 import type { FeedbackFunc } from './type'
 import type { ChatItem, VisionFile, VisionSettings } from '@/types/app'
 import { TransferMethod } from '@/types/app'
@@ -27,6 +28,10 @@ export type IChatProps = {
    * Whether to display the input area
    */
   isHideSendInput?: boolean
+  /**
+   * Whether to display the message count
+   */
+  showCount?: boolean
   onFeedback?: FeedbackFunc
   checkCanSend?: () => boolean
   onSend?: (message: string, files: VisionFile[]) => void
@@ -40,6 +45,7 @@ const Chat: FC<IChatProps> = ({
   chatList,
   feedbackDisabled = false,
   isHideSendInput = false,
+  showCount = false,
   onFeedback,
   checkCanSend,
   onSend = () => { },
@@ -118,7 +124,16 @@ const Chat: FC<IChatProps> = ({
     }
   }
 
-
+  // 处理语音识别结果
+  const handleVoiceResult = (text: string) => {
+    if (!text) return
+    // 如果已有内容，则追加，否则直接设置
+    if (query) {
+      setQuery(`${query} ${text}`)
+    } else {
+      setQuery(text)
+    }
+  }
 
   return (
     <div className={cn(!feedbackDisabled && 'px-3.5', 'h-full')}>
@@ -187,7 +202,14 @@ const Chat: FC<IChatProps> = ({
                 autoSize
               />
               <div className="absolute bottom-2 right-2 flex items-center h-8">
-                <div className={`${s.count} mr-4 h-5 leading-5 text-sm bg-gray-50 text-gray-500`}>{query.trim().length}</div>
+                {/* 移动字数显示到前面并添加显示控制 */}
+                {showCount && (
+                  <div className={`${s.count} mr-4 h-5 leading-5 text-sm bg-gray-50 text-gray-500`}>{query.trim().length}</div>
+                )}
+                <VoiceRecorder
+                  onResult={handleVoiceResult}
+                  disabled={isResponding}
+                />
                 <Tooltip
                   selector='send-tip'
                   htmlContent={
