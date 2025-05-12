@@ -1,6 +1,6 @@
 'use client'
 import type { FC } from 'react'
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import { HandThumbDownIcon, HandThumbUpIcon } from '@heroicons/react/24/outline'
 import { useTranslation } from 'react-i18next'
 import LoadingAnim from '../loading-anim'
@@ -14,7 +14,6 @@ import Tooltip from '@/app/components/base/tooltip'
 import WorkflowProcess from '@/app/components/workflow/workflow-process'
 import { Markdown } from '@/app/components/base/markdown'
 import type { Emoji } from '@/types/tools'
-import { useState, useCallback } from 'react'
 import copy from 'copy-to-clipboard'
 import { Clipboard, ClipboardCheck } from '@/app/components/base/icons/line/files'
 import Toast from '@/app/components/base/toast'
@@ -81,6 +80,48 @@ const Answer: FC<IAnswerProps> = ({
 
   const { t } = useTranslation()
 
+  const [isCopied, setIsCopied] = useState(false)
+  const { notify } = Toast
+
+  const handleCopyMessage = useCallback(() => {
+    // 提取消息内容
+    let messageContent = content || ''
+
+    // 如果是代理模式，则提取所有思考和观察内容
+    if (isAgentMode && agent_thoughts && agent_thoughts.length > 0) {
+      // 如果有content，优先使用content
+      if (content && content.trim()) {
+        messageContent = content
+      } else {
+        // 否则使用agent_thoughts中的内容
+        const thoughtsContent = agent_thoughts
+          .map(item => {
+            let itemContent = ''
+            if (item.thought) itemContent += item.thought + '\n'
+            if (item.observation) itemContent += item.observation + '\n'
+            return itemContent
+          })
+          .join('\n')
+
+        messageContent = thoughtsContent
+      }
+    }
+
+    if (!messageContent.trim()) {
+      notify({ type: 'warning', message: '消息内容为空，无法复制', duration: 2000 })
+      return
+    }
+
+    copy(messageContent)
+    setIsCopied(true)
+    notify({ type: 'success', message: '复制成功', duration: 2000 })
+
+    // 2秒后重置复制状态
+    setTimeout(() => {
+      setIsCopied(false)
+    }, 2000)
+  }, [content, agent_thoughts, isAgentMode, notify])
+
   /**
  * Render feedback results (distinguish between users and administrators)
  * User reviews cannot be cancelled in Console
@@ -128,53 +169,6 @@ const Answer: FC<IAnswerProps> = ({
       </Tooltip>
     )
   }
-
-  /**
-   * Different scenarios have different operation items.
-   * @returns comp
-   */
-  // 复制整条消息的功能
-  const [isCopied, setIsCopied] = useState(false)
-  const { notify } = Toast
-
-  const handleCopyMessage = useCallback(() => {
-    // 提取消息内容
-    let messageContent = content || ''
-
-    // 如果是代理模式，则提取所有思考和观察内容
-    if (isAgentMode && agent_thoughts && agent_thoughts.length > 0) {
-      // 如果有content，优先使用content
-      if (content && content.trim()) {
-        messageContent = content
-      } else {
-        // 否则使用agent_thoughts中的内容
-        const thoughtsContent = agent_thoughts
-          .map(item => {
-            let itemContent = ''
-            if (item.thought) itemContent += item.thought + '\n'
-            if (item.observation) itemContent += item.observation + '\n'
-            return itemContent
-          })
-          .join('\n')
-
-        messageContent = thoughtsContent
-      }
-    }
-
-    if (!messageContent.trim()) {
-      notify({ type: 'warning', message: '消息内容为空，无法复制', duration: 2000 })
-      return
-    }
-
-    copy(messageContent)
-    setIsCopied(true)
-    notify({ type: 'success', message: '复制成功', duration: 2000 })
-
-    // 2秒后重置复制状态
-    setTimeout(() => {
-      setIsCopied(false)
-    }, 2000)
-  }, [content, agent_thoughts, isAgentMode, notify])
 
   const renderItemOperation = () => {
     const userOperation = () => {
@@ -244,7 +238,7 @@ const Answer: FC<IAnswerProps> = ({
         )}
         <div className={`${s.answerWrap}`}>
           <div className={`${s.answer} relative text-sm text-gray-900`}>
-            <div className={`${showAvatar ? 'ml-2' : ''} py-3 px-4 bg-[#fefefe] rounded-tr-2xl rounded-b-2xl ${workflowProcess && 'min-w-[480px]'}`}>
+            <div className={`${showAvatar ? 'ml-2' : ''} py-3 px-4 bg-[#fefefe] rounded-tr-2xl rounded-b-2xl w-full min-w-0`}>
               {workflowProcess && (
                 <WorkflowProcess data={workflowProcess} hideInfo />
               )}
