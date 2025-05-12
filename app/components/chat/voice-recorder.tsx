@@ -132,11 +132,17 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         }
     }
 
+    // 获取提示文本，直接提供中文
+    const getTooltipContent = () => {
+        if (error) return error
+        return isRecording ? '录音中...' : '开始语音输入'
+    }
+
     return (
         <div className="relative">
             <Tooltip
                 selector="voice-recorder-tip"
-                content={error || (isRecording ? t('common.operation.recording') || '录音中...' : t('common.operation.startRecording') || '开始录音')}
+                content={getTooltipContent()}
             >
                 <div
                     className={cn(
