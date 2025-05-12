@@ -221,53 +221,48 @@ const Main: FC<IMainProps> = () => {
     }
   }, [currConversationId])
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [pendingResetId, setPendingResetId] = useState<string | null>(null)
+
   const handleConversationIdChange = (id: string) => {
     if (id === '-1') {
-      createNewChat()
-      setConversationIdChangeBecauseOfNew(true)
-
-      // 清空聊天历史列表
-      _setChatList([])
-      // 重置本地存储标记，防止从本地存储恢复旧聊天内容
-      setRestoredFromLocalStorage(false)
-
-      // 从URL获取参数，以便在新会话中保留
-      const urlInputs = getInputsFromUrlParams()
-
-      // 如果URL中有参数，设置为当前输入
-      if (Object.keys(urlInputs).length > 0 && promptConfig?.prompt_variables) {
-        const processedInputs: Record<string, any> = {}
-
-        // 处理URL参数
-        promptConfig.prompt_variables.forEach(variable => {
-          if (urlInputs[variable.key]) {
-            if (variable.type === 'number') {
-              processedInputs[variable.key] = Number(urlInputs[variable.key])
-            } else {
-              processedInputs[variable.key] = urlInputs[variable.key]
-            }
-          }
-        })
-
-        // 如果有有效的输入参数，则设置到currInputs中
-        if (Object.keys(processedInputs).length > 0) {
-          setCurrInputs(processedInputs)
-        }
-      }
-
-      // 创建新的开场白聊天列表
-      const newChatList = generateNewChatListWithOpenStatement()
-      _setChatList(newChatList)
-      // 设置为已开始聊天，确保界面显示正确
-      setChatStarted()
-      console.log('重置聊天，清空聊天历史，创建新的开场白')
+      setPendingResetId(id)
+      setShowResetConfirm(true)
+      return
     }
-    else {
-      setConversationIdChangeBecauseOfNew(false)
-    }
-    // trigger handleConversationSwitch
+    setConversationIdChangeBecauseOfNew(false)
     setCurrConversationId(id, APP_ID)
     hideSidebar()
+  }
+
+  const doResetConversation = () => {
+    createNewChat()
+    setConversationIdChangeBecauseOfNew(true)
+    _setChatList([])
+    setRestoredFromLocalStorage(false)
+    const urlInputs = getInputsFromUrlParams()
+    if (Object.keys(urlInputs).length > 0 && promptConfig?.prompt_variables) {
+      const processedInputs: Record<string, any> = {}
+      promptConfig.prompt_variables.forEach(variable => {
+        if (urlInputs[variable.key]) {
+          if (variable.type === 'number') {
+            processedInputs[variable.key] = Number(urlInputs[variable.key])
+          } else {
+            processedInputs[variable.key] = urlInputs[variable.key]
+          }
+        }
+      })
+      if (Object.keys(processedInputs).length > 0) {
+        setCurrInputs(processedInputs)
+      }
+    }
+    const newChatList = generateNewChatListWithOpenStatement()
+    _setChatList(newChatList)
+    setChatStarted()
+    setCurrConversationId('-1', APP_ID)
+    hideSidebar()
+    setShowResetConfirm(false)
+    setPendingResetId(null)
   }
 
   /*
@@ -1148,6 +1143,17 @@ const Main: FC<IMainProps> = () => {
           }
         </div>
       </div>
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
+            <div className="text-base text-gray-900 mb-4">重置将清空已生成的内容，是否继续？</div>
+            <div className="flex justify-end gap-3">
+              <button className="px-4 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => { setShowResetConfirm(false); setPendingResetId(null); }}>{t('common.operation.cancel')}</button>
+              <button className="px-4 py-1 rounded bg-primary-600 text-white hover:bg-primary-700" onClick={doResetConversation}>{t('common.operation.confirm')}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
