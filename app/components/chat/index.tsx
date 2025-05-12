@@ -8,6 +8,7 @@ import s from './style.module.css'
 import Answer from './answer'
 import Question from './question'
 import VoiceRecorder from './voice-recorder'
+import AudioVisualizer from './audio-visualizer'
 import type { FeedbackFunc } from './type'
 import type { ChatItem, VisionFile, VisionSettings } from '@/types/app'
 import { TransferMethod } from '@/types/app'
@@ -57,6 +58,7 @@ const Chat: FC<IChatProps> = ({
   const { t } = useTranslation()
   const { notify } = Toast
   const isUseInputMethod = useRef(false)
+  const [isRecording, setIsRecording] = React.useState(false)
 
   const [query, setQuery] = React.useState('')
   const handleContentChange = (e: any) => {
@@ -135,6 +137,11 @@ const Chat: FC<IChatProps> = ({
     }
   }
 
+  // 处理录音状态变化
+  const handleRecordingStateChange = (recording: boolean) => {
+    setIsRecording(recording)
+  }
+
   return (
     <div className={cn(!feedbackDisabled && 'px-3.5', 'h-full')}>
       {/* Chat List */}
@@ -166,7 +173,7 @@ const Chat: FC<IChatProps> = ({
       {
         !isHideSendInput && (
           <div className={cn(!feedbackDisabled && '!left-3.5 !right-3.5', 'absolute z-10 bottom-0 left-0 right-0')}>
-            <div className='p-[5.5px] max-h-[150px] bg-white border-[1.5px] border-gray-200 rounded-xl overflow-y-auto'>
+            <div className='p-[5.5px] max-h-[150px] bg-white border-[1.5px] border-gray-200 rounded-xl overflow-visible relative'>
               {
                 visionConfig?.enabled && (
                   <>
@@ -190,24 +197,33 @@ const Chat: FC<IChatProps> = ({
                   </>
                 )
               }
-              <Textarea
-                className={`
-                  block w-full px-2 pr-[118px] py-[7px] leading-5 max-h-none text-sm text-gray-700 outline-none appearance-none resize-none
-                  ${visionConfig?.enabled && 'pl-12'}
-                `}
-                value={query}
-                onChange={handleContentChange}
-                onKeyUp={handleKeyUp}
-                onKeyDown={handleKeyDown}
-                autoSize
-              />
-              <div className="absolute bottom-2 right-2 flex items-center h-8">
+              <div className={`relative ${isRecording ? 'h-10' : ''} overflow-hidden`}>
+                <Textarea
+                  className={`
+                    block w-full px-2 pr-[118px] py-[7px] leading-5 max-h-none text-sm text-gray-700 outline-none appearance-none resize-none
+                    ${visionConfig?.enabled && 'pl-12'}
+                    ${isRecording ? 'opacity-50' : ''}
+                  `}
+                  value={query}
+                  onChange={handleContentChange}
+                  onKeyUp={handleKeyUp}
+                  onKeyDown={handleKeyDown}
+                  autoSize={!isRecording}
+                  disabled={isRecording}
+                />
+
+                {/* 录音波形可视化 */}
+                <AudioVisualizer isRecording={isRecording} />
+              </div>
+
+              <div className="absolute bottom-2 right-2 flex items-center h-8 z-20">
                 {/* 移动字数显示到前面并添加显示控制 */}
                 {showCount && (
                   <div className={`${s.count} mr-4 h-5 leading-5 text-sm bg-gray-50 text-gray-500`}>{query.trim().length}</div>
                 )}
                 <VoiceRecorder
                   onResult={handleVoiceResult}
+                  onRecordingStateChange={handleRecordingStateChange}
                   disabled={isResponding}
                 />
                 <Tooltip

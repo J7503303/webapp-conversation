@@ -48,17 +48,24 @@ declare global {
 
 interface VoiceRecorderProps {
     onResult: (text: string) => void
+    onRecordingStateChange?: (isRecording: boolean) => void
     disabled?: boolean
 }
 
 const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     onResult,
+    onRecordingStateChange,
     disabled = false,
 }) => {
     const { t } = useTranslation()
     const [isRecording, setIsRecording] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const recognitionRef = useRef<SpeechRecognition | null>(null)
+
+    // 通知父组件录音状态变化
+    useEffect(() => {
+        onRecordingStateChange?.(isRecording)
+    }, [isRecording, onRecordingStateChange])
 
     // 初始化语音识别
     useEffect(() => {
@@ -139,10 +146,11 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     }
 
     return (
-        <div className="relative">
+        <div className="relative z-30">
             <Tooltip
                 selector="voice-recorder-tip"
                 content={getTooltipContent()}
+                className="z-50"
             >
                 <div
                     className={cn(
