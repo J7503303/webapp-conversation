@@ -11,6 +11,7 @@ import AlertCircle from '@/app/components/base/icons/solid/alert-circle'
 import Loading02 from '@/app/components/base/icons/line/loading-02'
 import ChevronRight from '@/app/components/base/icons/line/chevron-right'
 import { WorkflowRunningStatus } from '@/types/app'
+import { useTranslation } from 'react-i18next'
 
 type WorkflowProcessProps = {
   data: WorkflowProcess
@@ -24,6 +25,7 @@ const WorkflowProcessItem = ({
   expand = false,
   hideInfo = false,
 }: WorkflowProcessProps) => {
+  const { t } = useTranslation()
   const [collapse, setCollapse] = useState(!expand)
   const running = data.status === WorkflowRunningStatus.Running
   const succeeded = data.status === WorkflowRunningStatus.Succeeded
@@ -78,7 +80,9 @@ const WorkflowProcessItem = ({
             <AlertCircle className='shrink-0 mr-1 w-3 h-3 text-[#F04438]' />
           )
         }
-        <div className='grow text-xs font-medium text-gray-700 leading-[18px]'>Workflow Process</div>
+        <div className='grow text-xs font-medium text-gray-700 leading-[18px]'>
+          {t('app.chat.workflowProcess', '工作流')}
+        </div>
         <ChevronRight className={`'ml-1 w-3 h-3 text-gray-500' ${collapse ? '' : 'rotate-90'}`} />
       </div>
       {

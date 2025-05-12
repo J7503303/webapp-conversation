@@ -26,6 +26,7 @@ const translation = {
   variableTable: {
     optional: '可选',
   },
+  workflowProcess: '工作流',
 }
 
 export default translation
