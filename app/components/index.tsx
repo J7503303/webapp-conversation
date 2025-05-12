@@ -24,6 +24,15 @@ import type { Annotation as AnnotationType } from '@/types/log'
 import { addFileInfos, sortAgentSorts } from '@/utils/tools'
 import { getInputsFromUrlParams } from '@/utils/url-params'
 
+// 添加全局类型声明，修复类型错误
+declare global {
+  interface Window {
+    openingStatement?: string;
+    openingQuestions?: string[];
+    sendSuggestedQuestion?: CustomEvent;
+  }
+}
+
 export type IMainProps = {
   params: any
 }
@@ -216,6 +225,42 @@ const Main: FC<IMainProps> = () => {
     if (id === '-1') {
       createNewChat()
       setConversationIdChangeBecauseOfNew(true)
+
+      // 清空聊天历史列表
+      _setChatList([])
+      // 重置本地存储标记，防止从本地存储恢复旧聊天内容
+      setRestoredFromLocalStorage(false)
+
+      // 从URL获取参数，以便在新会话中保留
+      const urlInputs = getInputsFromUrlParams()
+
+      // 如果URL中有参数，设置为当前输入
+      if (Object.keys(urlInputs).length > 0 && promptConfig?.prompt_variables) {
+        const processedInputs: Record<string, any> = {}
+
+        // 处理URL参数
+        promptConfig.prompt_variables.forEach(variable => {
+          if (urlInputs[variable.key]) {
+            if (variable.type === 'number') {
+              processedInputs[variable.key] = Number(urlInputs[variable.key])
+            } else {
+              processedInputs[variable.key] = urlInputs[variable.key]
+            }
+          }
+        })
+
+        // 如果有有效的输入参数，则设置到currInputs中
+        if (Object.keys(processedInputs).length > 0) {
+          setCurrInputs(processedInputs)
+        }
+      }
+
+      // 创建新的开场白聊天列表
+      const newChatList = generateNewChatListWithOpenStatement()
+      _setChatList(newChatList)
+      // 设置为已开始聊天，确保界面显示正确
+      setChatStarted()
+      console.log('重置聊天，清空聊天历史，创建新的开场白')
     }
     else {
       setConversationIdChangeBecauseOfNew(false)
@@ -520,7 +565,7 @@ const Main: FC<IMainProps> = () => {
           // 设置inited状态
           setInited(true)
         } else {
-                  // 对于新会话，直接创建包含开场白和开场问题的聊天列表
+          // 对于新会话，直接创建包含开场白和开场问题的聊天列表
           const newChatList = generateNewChatListWithOpenStatement(introduction, null)
           console.log('Creating new chat list for new conversation:', newChatList)
           if (newChatList.length > 0) {
@@ -655,22 +700,31 @@ const Main: FC<IMainProps> = () => {
     if (currInputs) {
       Object.keys(currInputs).forEach((key) => {
         const value = currInputs[key]
-        if (value.supportFileType)
+        // 添加null检查避免错误
+        if (value && value.supportFileType)
           toServerInputs[key] = transformToServerFile(value)
-
-        else if (value[0]?.supportFileType)
+        else if (value && Array.isArray(value) && value[0]?.supportFileType)
           toServerInputs[key] = value.map((item: any) => transformToServerFile(item))
-
         else
           toServerInputs[key] = value
       })
     }
 
+    // 获取当前会话ID
+    const currentConversationId = getCurrConversationId()
+
+    // 针对不同情况处理会话ID
+    // 如果是非新会话且当前会话ID有效，则使用当前会话ID
+    // 如果是新会话或对话已结束，则设置为null让服务器创建新会话
+    const useExistingConversation = currentConversationId && currentConversationId !== '-1'
+
     const data: Record<string, any> = {
       inputs: toServerInputs,
       query: message,
-      conversation_id: isNewConversation ? null : currConversationId,
+      conversation_id: useExistingConversation ? currentConversationId : null,
     }
+
+    console.log('发送消息，conversation_id设置为:', useExistingConversation ? currentConversationId : 'null (创建新会话)')
 
     if (visionConfig?.enabled && files && files?.length > 0) {
       data.files = files.map((item) => {
@@ -778,6 +832,20 @@ const Main: FC<IMainProps> = () => {
             if (currentChatList.length > 0) {
               localStorage.setItem(`chatList_${tempNewConversationId}`, JSON.stringify(currentChatList))
               console.log('聊天完成，保存聊天列表到新会话ID:', tempNewConversationId)
+
+              // 重要：保存新的会话ID到localStorage，格式必须与getConversationIdFromStorage一致
+              // 读取当前conversationIdInfo对象
+              const storageKey = 'conversationIdInfo'
+              const conversationIdInfo = localStorage.getItem(storageKey)
+                ? JSON.parse(localStorage.getItem(storageKey) || '{}')
+                : {}
+
+              // 更新对象中的当前APP_ID对应的会话ID
+              conversationIdInfo[APP_ID] = tempNewConversationId
+
+              // 保存回localStorage
+              localStorage.setItem(storageKey, JSON.stringify(conversationIdInfo))
+              console.log('更新localStorage中的会话ID为:', tempNewConversationId)
             }
           }
         } catch (e) {

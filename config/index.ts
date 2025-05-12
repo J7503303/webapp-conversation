@@ -36,7 +36,7 @@ export const DEFAULT_VALUE_MAX_LEN = 48
 // 控制聊天界面头像显示
 export const isShowAvatar = false
 
-// 控制是否显示编辑按钮和“开始前，您可以修改对话设置”提示
+// 控制是否显示编辑按钮和"开始前，您可以修改对话设置"提示
 // true: 仅当必填参数为空时显示，false: 始终显示
 export const showEditButtonOnlyWhenEmpty = true
 

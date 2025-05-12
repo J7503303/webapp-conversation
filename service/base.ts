@@ -21,16 +21,26 @@ const getSysUserId = () => {
   return urlParams.get('sys.user_id')
 }
 
+// 创建headers对象
+const createHeaders = () => {
+  const headers = new Headers();
+  headers.append('Content-Type', ContentType.json);
+
+  // 如果URL参数中有sys.user_id，则添加到请求头中
+  const sysUserId = getSysUserId();
+  if (sysUserId) {
+    headers.append('x-sys-user-id', sysUserId);
+  }
+
+  return headers;
+};
+
 const baseOptions = {
   method: 'GET',
-  mode: 'cors',
-  credentials: 'include', // always send cookies、HTTP Basic authentication.
-  headers: new Headers({
-    'Content-Type': ContentType.json,
-    // 如果URL参数中有sys.user_id，则添加到请求头中
-    ...getSysUserId() ? { 'x-sys-user-id': getSysUserId() } : {},
-  }),
-  redirect: 'follow',
+  mode: 'cors' as RequestMode,
+  credentials: 'include' as RequestCredentials, // always send cookies、HTTP Basic authentication.
+  headers: createHeaders(),
+  redirect: 'follow' as RequestRedirect,
 }
 
 export type WorkflowStartedResponse = {
