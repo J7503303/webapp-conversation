@@ -28,14 +28,17 @@
 .question::before {
   content: '';
   position: absolute;
-  top: 0;
   width: 8px;
   height: 12px;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .answer::before {
-  left: 0;
+  top: 16px;
+  left: -7px;
   background: url(./icons/answer.svg) no-repeat;
+  background-size: contain;
 }
 
 .answerWrap .itemOperation {
@@ -47,8 +50,10 @@
 }
 
 .question::before {
-  right: 0;
+  top: 16px;
+  right: -7px;
   background: url(./icons/question.svg) no-repeat;
+  background-size: contain;
 }
 
 .textArea {
