@@ -22,14 +22,16 @@
   max-width: 100%;
   width: 100%;
   position: relative;
-  margin-top: 10px;
+  margin-top: 0;
+  overflow: visible;
 }
 
 .question {
   max-width: 100%;
   width: 100%;
   position: relative;
-  margin-bottom: 10px;
+  margin-bottom: 0;
+  overflow: visible;
 }
 
 .questionIcon {
@@ -40,7 +42,8 @@
 
 .answerWrap {
   position: relative;
-  padding-top: 10px;
+  padding-top: 8px;
+  overflow: visible;
 }
 
 .answerWrap .itemOperation {

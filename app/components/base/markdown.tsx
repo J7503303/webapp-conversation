@@ -184,7 +184,7 @@ export function Markdown(props: { content: string }) {
   if (processedContent && typeof processedContent !== 'string') {
     // 显示已完成的部分和正在输出的思考内容（放入折叠元素）
     return (
-      <div className="markdown-body text-sm !px-0">
+      <div className="markdown-body text-sm !px-0 !leading-relaxed !overflow-visible" style={{ overflow: 'visible' }}>
         {/* 渲染思考内容前的普通文本 */}
         {processedContent.beforeThinking && (
           <ReactMarkdown
@@ -203,11 +203,19 @@ export function Markdown(props: { content: string }) {
                       language={match[1]}
                       showLineNumbers
                       PreTag="div"
-                      className="!px-2"
+                      className="!px-2 !overflow-visible"
+                      wrapLines={true}
+                      wrapLongLines={true}
+                      customStyle={{
+                        overflow: 'visible',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        maxHeight: 'none'
+                      }}
                     />
                   )
                   : (
-                    <code {...props} className={className}>
+                    <code {...props} className={className} style={{ overflow: 'visible' }}>
                       {children}
                     </code>
                   )
@@ -261,6 +269,9 @@ export function Markdown(props: { content: string }) {
                   </CopyableParagraph>
                 );
               },
+              pre({ node, children }) {
+                return <pre style={{ overflow: 'visible', whiteSpace: 'pre-wrap' }}>{children}</pre>;
+              }
             }}
           >
             {preprocessJinjaTemplates(processedContent.beforeThinking)}
@@ -306,11 +317,19 @@ export function Markdown(props: { content: string }) {
                       language={match[1]}
                       showLineNumbers
                       PreTag="div"
-                      className="!px-2"
+                      className="!px-2 !overflow-visible"
+                      wrapLines={true}
+                      wrapLongLines={true}
+                      customStyle={{
+                        overflow: 'visible',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        maxHeight: 'none'
+                      }}
                     />
                   )
                   : (
-                    <code {...props} className={className}>
+                    <code {...props} className={className} style={{ overflow: 'visible' }}>
                       {children}
                     </code>
                   )
@@ -364,6 +383,9 @@ export function Markdown(props: { content: string }) {
                   </CopyableParagraph>
                 );
               },
+              pre({ node, children }) {
+                return <pre style={{ overflow: 'visible', whiteSpace: 'pre-wrap' }}>{children}</pre>;
+              }
             }}
           >
             {preprocessJinjaTemplates(part)}
@@ -379,12 +401,12 @@ export function Markdown(props: { content: string }) {
       }
     }
 
-    return <div className="markdown-body text-sm !px-0">{result}</div>;
+    return <div className="markdown-body text-sm !px-0 !leading-relaxed !overflow-visible" style={{ overflow: 'visible' }}>{result}</div>;
   }
 
   // 如果没有思考内容，使用原始的ReactMarkdown渲染
   return (
-    <div className="markdown-body text-sm !px-0">
+    <div className="markdown-body text-sm !px-0 !leading-relaxed !overflow-visible" style={{ overflow: 'visible' }}>
       <ReactMarkdown
         remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}
         rehypePlugins={[RehypeKatex]}
@@ -401,11 +423,19 @@ export function Markdown(props: { content: string }) {
                   language={match[1]}
                   showLineNumbers
                   PreTag="div"
-                  className="!px-2"
+                  className="!px-2 !overflow-visible"
+                  wrapLines={true}
+                  wrapLongLines={true}
+                  customStyle={{
+                    overflow: 'visible',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    maxHeight: 'none'
+                  }}
                 />
               )
               : (
-                <code {...props} className={className}>
+                <code {...props} className={className} style={{ overflow: 'visible' }}>
                   {children}
                 </code>
               )
@@ -459,6 +489,9 @@ export function Markdown(props: { content: string }) {
               </CopyableParagraph>
             );
           },
+          pre({ node, children }) {
+            return <pre style={{ overflow: 'visible', whiteSpace: 'pre-wrap' }}>{children}</pre>;
+          }
         }}
       >
         {preprocessJinjaTemplates(props.content || '')}

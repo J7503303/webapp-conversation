@@ -238,7 +238,7 @@ const Answer: FC<IAnswerProps> = ({
         )}
         <div className={`${s.answerWrap} relative overflow-hidden`}>
           <div className={`${s.answer} relative text-sm text-gray-900`}>
-            <div className={`${showAvatar ? 'ml-2' : ''} py-2 px-2.5 bg-[#fefefe] rounded-tr-2xl rounded-b-2xl w-full min-w-0`}>
+            <div className={`${showAvatar ? 'ml-2' : ''} py-1 px-2 bg-[#fefefe] rounded-tr-2xl rounded-b-2xl w-full min-w-0 overflow-visible`}>
               {workflowProcess && (
                 <WorkflowProcess data={workflowProcess} hideInfo />
               )}
@@ -276,7 +276,7 @@ const Answer: FC<IAnswerProps> = ({
                     </>
                   ))}
             </div>
-            <div className='absolute top-[-20px] right-0 flex flex-row justify-end gap-1 z-10'>
+            <div className='absolute top-[-14px] right-0 flex flex-row justify-end gap-0.5 z-10'>
               {/* 没有反馈时，显示赞同/反对和复制按钮 */}
               {!feedbackDisabled && !item.feedbackDisabled && renderItemOperation()}
               {/* 有反馈时，显示反馈状态和复制按钮 */}

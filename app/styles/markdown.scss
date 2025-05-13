@@ -52,8 +52,11 @@
   background-color: var(--color-canvas-default);
   font-size: 14px;
   font-weight: 400;
-  line-height: 1.4;
+  line-height: 1.6;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  overflow: visible !important;
 
   /* 减小内部元素的左右边距，保持上下边距 */
   p,
@@ -65,15 +68,27 @@
   pre,
   details {
     margin-top: 0;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     padding-right: 0;
     padding-left: 0;
+    overflow: visible !important;
   }
 
   /* 减小列表缩进 */
   ul,
   ol {
-    padding-left: 1.2em;
+    padding-left: 1em;
+  }
+
+  /* 减小标题的上下边距 */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin-top: 12px;
+    margin-bottom: 6px;
   }
 
   /* 思考内容样式 */
@@ -181,6 +196,59 @@
       margin-top: 10px;
       color: #555;
     }
+  }
+
+  /* 代码块处理 */
+  pre {
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+    max-height: none !important;
+    border: 1px solid #e0e0e0;
+  }
+
+  code {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* 强制所有内部元素不显示滚动条 */
+  * {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  /* 增加列表项间距 */
+  li+li {
+    margin-top: 0.5em !important;
+  }
+
+  /* 确保代码块和语法高亮不产生滚动条 */
+  .highlight pre,
+  pre {
+    padding: 12px;
+    background: #fff;
+    overflow: visible !important;
+    word-break: break-word !important;
+    white-space: pre-wrap !important;
+    max-height: none !important;
+    border-radius: 6px;
+  }
+
+  pre code,
+  pre tt {
+    display: inline;
+    max-width: auto;
+    padding: 0;
+    margin: 0;
+    white-space: pre-wrap !important;
+    overflow: visible !important;
+    line-height: inherit;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    background-color: transparent;
+    border: 0;
   }
 }
 
@@ -447,8 +515,8 @@
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  margin-top: 16px;
-  margin-bottom: 8px;
+  margin-top: 12px;
+  margin-bottom: 6px;
   font-weight: var(--base-text-weight-semibold, 600);
   line-height: 1.25;
 }
@@ -462,7 +530,7 @@
 .markdown-body pre,
 .markdown-body details {
   margin-top: 0;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .markdown-body blockquote {
