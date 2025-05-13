@@ -20,7 +20,7 @@ import Toast from '@/app/components/base/toast'
 
 const OperationBtn = ({ innerContent, onClick, className }: { innerContent: React.ReactNode; onClick?: () => void; className?: string }) => (
   <div
-    className={`relative box-border flex items-center justify-center h-7 w-7 p-0.5 rounded-lg bg-white cursor-pointer text-gray-500 hover:text-gray-800 ${className ?? ''}`}
+    className={`relative box-border flex items-center justify-center h-6 w-6 p-0.5 rounded-lg bg-white cursor-pointer text-gray-500 hover:text-gray-800 ${className ?? ''}`}
     style={{ boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1), 0px 2px 4px -2px rgba(0, 0, 0, 0.05)' }}
     onClick={onClick && onClick}
   >
@@ -52,7 +52,7 @@ export const EditIconSolid: FC<{ className?: string }> = ({ className }) => {
 }
 
 const IconWrapper: FC<{ children: React.ReactNode | string }> = ({ children }) => {
-  return <div className={'rounded-lg h-6 w-6 flex items-center justify-center hover:bg-gray-100'}>
+  return <div className={'rounded-lg h-5 w-5 flex items-center justify-center hover:bg-gray-100'}>
     {children}
   </div>
 }
@@ -142,13 +142,13 @@ const Answer: FC<IAnswerProps> = ({
         content={isLike ? '取消赞同' : '取消反对'}
       >
         <div
-          className={'relative box-border flex items-center justify-center h-7 w-7 p-0.5 rounded-lg bg-white cursor-pointer text-gray-500 hover:text-gray-800'}
+          className={'relative box-border flex items-center justify-center h-6 w-6 p-0.5 rounded-lg bg-white cursor-pointer text-gray-500 hover:text-gray-800'}
           style={{ boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1), 0px 2px 4px -2px rgba(0, 0, 0, 0.05)' }}
           onClick={async () => {
             await onFeedback?.(id, { rating: null })
           }}
         >
-          <div className={`${ratingIconClassname} rounded-lg h-6 w-6 flex items-center justify-center`}>
+          <div className={`${ratingIconClassname} rounded-lg h-5 w-5 flex items-center justify-center`}>
             <RatingIcon isLike={isLike} />
           </div>
         </div>
@@ -236,9 +236,9 @@ const Answer: FC<IAnswerProps> = ({
             }
           </div>
         )}
-        <div className={`${s.answerWrap}`}>
+        <div className={`${s.answerWrap} relative overflow-hidden`}>
           <div className={`${s.answer} relative text-sm text-gray-900`}>
-            <div className={`${showAvatar ? 'ml-2' : ''} py-3 px-4 bg-[#fefefe] rounded-tr-2xl rounded-b-2xl w-full min-w-0`}>
+            <div className={`${showAvatar ? 'ml-2' : ''} py-2 px-2.5 bg-[#fefefe] rounded-tr-2xl rounded-b-2xl w-full min-w-0`}>
               {workflowProcess && (
                 <WorkflowProcess data={workflowProcess} hideInfo />
               )}
@@ -257,11 +257,11 @@ const Answer: FC<IAnswerProps> = ({
 
                       {/* 显示开场问题按钮 */}
                       {suggestedQuestions && suggestedQuestions.length > 0 && (
-                        <div className="mt-4 space-y-2">
+                        <div className="mt-3 space-y-1">
                           {suggestedQuestions.map((question, index) => (
                             <div
                               key={index}
-                              className="inline-block mr-2 mb-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg cursor-pointer transition-colors"
+                              className="inline-block mr-2 mb-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg cursor-pointer transition-colors"
                               onClick={() => {
                                 // 点击开场问题按钮时自动发送该问题
                                 const sendEvent = new CustomEvent('sendSuggestedQuestion', { detail: { question } });
@@ -276,7 +276,7 @@ const Answer: FC<IAnswerProps> = ({
                     </>
                   ))}
             </div>
-            <div className='absolute top-[-14px] right-[-14px] flex flex-row justify-end gap-1'>
+            <div className='absolute top-[-20px] right-0 flex flex-row justify-end gap-1 z-10'>
               {/* 没有反馈时，显示赞同/反对和复制按钮 */}
               {!feedbackDisabled && !item.feedbackDisabled && renderItemOperation()}
               {/* 有反馈时，显示反馈状态和复制按钮 */}

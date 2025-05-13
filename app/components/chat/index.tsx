@@ -143,9 +143,9 @@ const Chat: FC<IChatProps> = ({
   }
 
   return (
-    <div className={cn(!feedbackDisabled && 'px-3.5', 'h-full')}>
+    <div className={cn(!feedbackDisabled && 'px-1', 'h-full')}>
       {/* Chat List */}
-      <div className="h-full space-y-[30px]">
+      <div className="h-full space-y-4">
         {chatList.map((item) => {
           if (item.isAnswer) {
             const isLast = item.id === chatList[chatList.length - 1].id
@@ -172,7 +172,7 @@ const Chat: FC<IChatProps> = ({
       </div>
       {
         !isHideSendInput && (
-          <div className={cn(!feedbackDisabled && '!left-3.5 !right-3.5', 'absolute z-10 bottom-0 left-0 right-0')}>
+          <div className={cn(!feedbackDisabled && '!left-2 !right-2', 'absolute z-10 bottom-0 left-0 right-0')}>
             <div className='p-[5.5px] max-h-[150px] bg-white border-[1.5px] border-gray-200 rounded-xl overflow-visible relative'>
               {
                 visionConfig?.enabled && (

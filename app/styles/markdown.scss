@@ -52,12 +52,33 @@
   background-color: var(--color-canvas-default);
   font-size: 14px;
   font-weight: 400;
-  line-height: 1.5;
+  line-height: 1.4;
   word-wrap: break-word;
 
-  /* 新增思考内容样式 */
+  /* 减小内部元素的左右边距，保持上下边距 */
+  p,
+  blockquote,
+  ul,
+  ol,
+  dl,
+  table,
+  pre,
+  details {
+    margin-top: 0;
+    margin-bottom: 12px;
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  /* 减小列表缩进 */
+  ul,
+  ol {
+    padding-left: 1.2em;
+  }
+
+  /* 思考内容样式 */
   .thinking-block {
-    margin: 16px 0;
+    margin: 12px 0;
     border-radius: 8px;
     overflow: hidden;
 
@@ -73,13 +94,13 @@
 
         summary {
           border-bottom: 1px solid #e0e0e0;
-          margin-bottom: 12px;
+          margin-bottom: 8px;
           background-color: #eef2f7;
         }
       }
 
       summary {
-        padding: 10px 16px;
+        padding: 8px 12px;
         font-weight: 500;
         color: #555;
         cursor: pointer;
@@ -111,12 +132,12 @@
       }
 
       .thinking-content {
-        padding: 0 16px 16px;
+        padding: 0 12px 12px;
         color: #555;
 
         p {
-          margin-top: 8px;
-          margin-bottom: 8px;
+          margin-top: 6px;
+          margin-bottom: 6px;
         }
       }
     }
@@ -426,21 +447,27 @@
 .markdown-body h4,
 .markdown-body h5,
 .markdown-body h6 {
-  margin-top: 24px;
-  margin-bottom: 16px;
+  margin-top: 16px;
+  margin-bottom: 8px;
   font-weight: var(--base-text-weight-semibold, 600);
   line-height: 1.25;
 }
 
-
-.markdown-body p {
+.markdown-body p,
+.markdown-body blockquote,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body dl,
+.markdown-body table,
+.markdown-body pre,
+.markdown-body details {
   margin-top: 0;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .markdown-body blockquote {
   margin: 0;
-  padding: 0 8px;
+  padding: 0 6px;
   border-left: 2px solid #2970FF;
 }
 
@@ -448,7 +475,7 @@
 .markdown-body ol {
   margin-top: 0;
   margin-bottom: 0;
-  padding-left: 2em;
+  padding-left: 1.5em;
 }
 
 .markdown-body ol {
@@ -543,18 +570,6 @@
 
 .markdown-body .anchor:focus {
   outline: none;
-}
-
-.markdown-body p,
-.markdown-body blockquote,
-.markdown-body ul,
-.markdown-body ol,
-.markdown-body dl,
-.markdown-body table,
-.markdown-body pre,
-.markdown-body details {
-  margin-top: 0;
-  margin-bottom: 16px;
 }
 
 .markdown-body blockquote> :first-child {

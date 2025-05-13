@@ -17,11 +17,30 @@
   border-radius: 16px;
 }
 
+/* 优化聊天气泡宽度 */
+.answer {
+  max-width: 100%;
+  width: 100%;
+  position: relative;
+  margin-top: 10px;
+}
+
+.question {
+  max-width: 100%;
+  width: 100%;
+  position: relative;
+  margin-bottom: 10px;
+}
 
 .questionIcon {
   background: url(./icons/default-avatar.jpg);
   background-size: contain;
   border-radius: 50%;
+}
+
+.answerWrap {
+  position: relative;
+  padding-top: 10px;
 }
 
 .answerWrap .itemOperation {

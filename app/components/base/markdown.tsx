@@ -184,7 +184,7 @@ export function Markdown(props: { content: string }) {
   if (processedContent && typeof processedContent !== 'string') {
     // 显示已完成的部分和正在输出的思考内容（放入折叠元素）
     return (
-      <div className="markdown-body">
+      <div className="markdown-body text-sm !px-0">
         {/* 渲染思考内容前的普通文本 */}
         {processedContent.beforeThinking && (
           <ReactMarkdown
@@ -203,6 +203,7 @@ export function Markdown(props: { content: string }) {
                       language={match[1]}
                       showLineNumbers
                       PreTag="div"
+                      className="!px-2"
                     />
                   )
                   : (
@@ -305,6 +306,7 @@ export function Markdown(props: { content: string }) {
                       language={match[1]}
                       showLineNumbers
                       PreTag="div"
+                      className="!px-2"
                     />
                   )
                   : (
@@ -377,12 +379,12 @@ export function Markdown(props: { content: string }) {
       }
     }
 
-    return <div className="markdown-body">{result}</div>;
+    return <div className="markdown-body text-sm !px-0">{result}</div>;
   }
 
   // 如果没有思考内容，使用原始的ReactMarkdown渲染
   return (
-    <div className="markdown-body">
+    <div className="markdown-body text-sm !px-0">
       <ReactMarkdown
         remarkPlugins={[RemarkMath, RemarkGfm, RemarkBreaks]}
         rehypePlugins={[RehypeKatex]}
@@ -399,6 +401,7 @@ export function Markdown(props: { content: string }) {
                   language={match[1]}
                   showLineNumbers
                   PreTag="div"
+                  className="!px-2"
                 />
               )
               : (
