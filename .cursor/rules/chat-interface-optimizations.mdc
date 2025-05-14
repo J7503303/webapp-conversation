@@ -1,0 +1,41 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# 聊天界面优化指南
+
+## 思考内容折叠功能
+思考内容折叠功能通过在 [app/components/base/markdown.tsx](mdc:app/components/base/markdown.tsx) 中实现，使AI的思考过程默认以折叠形式展示：
+
+- `ThinkingContent` 组件用于展示可折叠的思考内容
+- `preprocessContent` 函数负责识别思考内容并处理折叠逻辑
+- 通过CSS样式（在 [app/styles/markdown.scss](mdc:app/styles/markdown.scss) 中）实现折叠元素的样式
+
+关键功能点：
+- 支持实时输出时创建折叠元素
+- 完整输出后保持折叠状态
+- 用户可点击展开/收起思考内容
+
+## 气泡样式优化
+聊天气泡样式在以下文件中定义和优化：
+
+- [app/components/chat/style.module.css](mdc:app/components/chat/style.module.css) - 定义基本气泡样式
+- [app/components/chat/answer/index.tsx](mdc:app/components/chat/answer/index.tsx) - 实现回答气泡组件
+- [app/components/chat/index.tsx](mdc:app/components/chat/index.tsx) - 整合聊天组件
+
+主要优化：
+- 移除了气泡尖角（::before伪元素），解决了左上角灰色不规则区域问题
+- 优化气泡宽度，确保内容充分展示
+
+## 小屏幕适配优化
+针对小屏幕设备的优化主要包括：
+
+- 减小水平内边距（从px-3.5减小到px-1）
+- 缩小消息间距（从space-y-4减小到space-y-3）
+- 减小气泡内部的左右边距（保留上下边距）
+- 修复复制按钮超出右边界导致的横向滚动条问题
+- 优化Markdown内容的边距和行高
+- 调整按钮尺寸和位置，确保不被遮挡
+
+这些优化在 [app/components/chat/index.tsx](mdc:app/components/chat/index.tsx) 和相关样式文件中实现。
