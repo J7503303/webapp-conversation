@@ -370,11 +370,12 @@
   overflow: hidden;
   background: transparent;
   border-bottom: 1px solid var(--color-border-muted);
-  height: 0.25em;
+  height: 0.1em;
   padding: 0;
   margin: 24px 0;
-  background-color: var(--color-border-default);
+  background-color: #e1e4e8;
   border: 0;
+  opacity: 0.6;
 }
 
 .markdown-body input {
