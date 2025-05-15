@@ -147,7 +147,7 @@ function CopyableParagraph({ children, content, isHeading = false }: CopyablePar
           style={{
             position: 'absolute',
             right: '-2px',  // 将图标定位在段落右侧的外部
-            top: '2px',
+            bottom: '2px',  // 修改为底部定位
             zIndex: 10
           }}
         >
@@ -158,12 +158,12 @@ function CopyableParagraph({ children, content, isHeading = false }: CopyablePar
             className="!z-20" /* 增加z-index确保Tooltip在最上层 */
           >
             <div
-              className="w-6 h-6 flex items-center justify-center cursor-pointer bg-white rounded-md shadow-sm"
+              className="w-7 h-7 flex items-center justify-center cursor-pointer bg-gray-50 rounded-md shadow-md border border-gray-200 hover:bg-gray-100"
               onClick={handleCopy}
             >
               {!isCopied ? (
                 <Clipboard
-                  className="w-4 h-4 text-gray-500 hover:text-gray-700"
+                  className="w-4 h-4 text-gray-600 hover:text-gray-800"
                 />
               ) : (
                 <ClipboardCheck className="w-4 h-4 text-green-500" />
