@@ -23,6 +23,30 @@ export function getConfigFromUrlParams() {
 import { decodeBase64ToString } from './base64-utils'
 
 /**
+ * 从URL参数中获取患者ID和病历类型
+ * 支持从URL参数中获取患者相关信息
+ */
+export function getPatientInfoFromUrlParams() {
+  if (typeof window === 'undefined') {
+    return {
+      patientId: null,
+      recordType: null,
+    }
+  }
+
+  const urlParams = new URLSearchParams(window.location.search)
+
+  // 获取患者ID和病历类型
+  const patientId = urlParams.get('patient_id')
+  const recordType = urlParams.get('record_type')
+
+  return {
+    patientId,
+    recordType,
+  }
+}
+
+/**
  * 从URL参数中获取inputs参数
  * 支持从URL参数中获取GZIP压缩并base64编码的inputs参数
  */

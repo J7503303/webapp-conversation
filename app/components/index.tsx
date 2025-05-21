@@ -22,7 +22,7 @@ import AppUnavailable from '@/app/components/app-unavailable'
 import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate, isShowSidebar as configIsShowSidebar } from '@/config'
 import type { Annotation as AnnotationType } from '@/types/log'
 import { addFileInfos, sortAgentSorts } from '@/utils/tools'
-import { getInputsFromUrlParams } from '@/utils/url-params'
+import { getInputsFromUrlParams, getPatientInfoFromUrlParams } from '@/utils/url-params'
 
 // 添加全局类型声明，修复类型错误
 declare global {
@@ -297,8 +297,18 @@ const Main: FC<IMainProps> = () => {
         try {
           const conversationId = getCurrConversationId()
           if (conversationId !== '-1') {
-            localStorage.setItem(`chatList_${conversationId}`, JSON.stringify(newList))
-            console.log('保存聊天列表到localStorage，会话ID:', conversationId, '项数:', newList.length)
+            // 获取患者ID和病历类型
+            const { patientId, recordType } = getPatientInfoFromUrlParams()
+
+            // 生成包含患者信息的存储键
+            let storageKey = `chatList_${conversationId}`
+            if (patientId)
+              storageKey += `_patient_${patientId}`
+            if (recordType)
+              storageKey += `_record_${recordType}`
+
+            localStorage.setItem(storageKey, JSON.stringify(newList))
+            console.log('保存聊天列表到localStorage，会话ID:', conversationId, '患者ID:', patientId, '病历类型:', recordType, '项数:', newList.length)
           }
         } catch (e) {
           console.error('Failed to save chat list to localStorage:', e)
@@ -317,7 +327,17 @@ const Main: FC<IMainProps> = () => {
   const restoreChatListFromLocalStorage = (conversationId: string) => {
     try {
       if (conversationId !== '-1') {
-        const savedChatList = localStorage.getItem(`chatList_${conversationId}`)
+        // 获取患者ID和病历类型
+        const { patientId, recordType } = getPatientInfoFromUrlParams()
+
+        // 生成包含患者信息的存储键
+        let storageKey = `chatList_${conversationId}`
+        if (patientId)
+          storageKey += `_patient_${patientId}`
+        if (recordType)
+          storageKey += `_record_${recordType}`
+
+        const savedChatList = localStorage.getItem(storageKey)
         if (savedChatList) {
           const parsedChatList = JSON.parse(savedChatList)
           if (parsedChatList && parsedChatList.length > 0) {
@@ -325,7 +345,7 @@ const Main: FC<IMainProps> = () => {
             setRestoredFromLocalStorage(true)
             // 设置为已开始聊天，确保聊天列表能正确显示
             setChatStarted()
-            console.log('从 localStorage 恢复聊天列表成功，设置为已开始聊天')
+            console.log('从 localStorage 恢复聊天列表成功，设置为已开始聊天，患者ID:', patientId, '病历类型:', recordType)
             return true
           }
         }
@@ -825,8 +845,18 @@ const Main: FC<IMainProps> = () => {
           if (tempNewConversationId && tempNewConversationId !== '-1') {
             const currentChatList = getChatList()
             if (currentChatList.length > 0) {
-              localStorage.setItem(`chatList_${tempNewConversationId}`, JSON.stringify(currentChatList))
-              console.log('聊天完成，保存聊天列表到新会话ID:', tempNewConversationId)
+              // 获取患者ID和病历类型
+              const { patientId, recordType } = getPatientInfoFromUrlParams()
+
+              // 生成包含患者信息的存储键
+              let chatListStorageKey = `chatList_${tempNewConversationId}`
+              if (patientId)
+                chatListStorageKey += `_patient_${patientId}`
+              if (recordType)
+                chatListStorageKey += `_record_${recordType}`
+
+              localStorage.setItem(chatListStorageKey, JSON.stringify(currentChatList))
+              console.log('聊天完成，保存聊天列表到新会话ID:', tempNewConversationId, '患者ID:', patientId, '病历类型:', recordType)
 
               // 重要：保存新的会话ID到localStorage，格式必须与getConversationIdFromStorage一致
               // 读取当前conversationIdInfo对象
@@ -835,12 +865,19 @@ const Main: FC<IMainProps> = () => {
                 ? JSON.parse(localStorage.getItem(storageKey) || '{}')
                 : {}
 
+              // 使用患者特定的存储键
+              let appStorageKey = APP_ID
+              if (patientId)
+                appStorageKey += `_patient_${patientId}`
+              if (recordType)
+                appStorageKey += `_record_${recordType}`
+
               // 更新对象中的当前APP_ID对应的会话ID
-              conversationIdInfo[APP_ID] = tempNewConversationId
+              conversationIdInfo[appStorageKey] = tempNewConversationId
 
               // 保存回localStorage
               localStorage.setItem(storageKey, JSON.stringify(conversationIdInfo))
-              console.log('更新localStorage中的会话ID为:', tempNewConversationId)
+              console.log('更新localStorage中的会话ID为:', tempNewConversationId, '使用键:', appStorageKey)
             }
           }
         } catch (e) {
