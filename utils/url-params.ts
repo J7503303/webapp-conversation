@@ -24,7 +24,7 @@ import { decodeBase64ToString } from './base64-utils'
 
 /**
  * 从URL参数中获取患者ID和病历类型
- * 支持从URL参数中获取患者相关信息
+ * 支持从URL参数中获取患者相关信息，并进行base64解码
  */
 export function getPatientInfoFromUrlParams() {
   if (typeof window === 'undefined') {
@@ -36,9 +36,32 @@ export function getPatientInfoFromUrlParams() {
 
   const urlParams = new URLSearchParams(window.location.search)
 
-  // 获取患者ID和病历类型
-  const patientId = urlParams.get('patient_id')
-  const recordType = urlParams.get('record_type')
+  // 获取患者ID和病历类型的原始值
+  const patientIdRaw = urlParams.get('patient_id')
+  const recordTypeRaw = urlParams.get('record_type')
+
+  // 解码函数 - 尝试base64解码，如果失败则使用原始值
+  const tryDecode = (value: string | null): string | null => {
+    if (!value) return null
+
+    try {
+      // 先进行URL解码
+      const urlDecoded = decodeURIComponent(value)
+      // 尝试base64解码
+      return decodeBase64ToString(urlDecoded)
+    } catch (e) {
+      console.log('解码失败，使用原始值:', value)
+      // 如果解码失败，使用原始值
+      return value
+    }
+  }
+
+  // 尝试解码
+  const patientId = tryDecode(patientIdRaw)
+  const recordType = tryDecode(recordTypeRaw)
+
+  console.log('获取到的患者ID:', patientIdRaw, '解码后:', patientId)
+  console.log('获取到的病历类型:', recordTypeRaw, '解码后:', recordType)
 
   return {
     patientId,
