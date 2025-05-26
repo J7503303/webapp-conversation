@@ -1608,43 +1608,56 @@ const Main: FC<IMainProps> = () => {
       {/* 病历类型切换栏 */}
       <div className="bg-white border-b border-gray-200 px-4 py-2">
         <div className="flex items-center justify-center">
-          <div className="flex space-x-3">
-            {[
-              { name: '入院记录', color: 'orange' as const },
-              { name: '出院记录', color: 'green' as const },
-              { name: '首次病程记录', color: 'purple' as const }
-            ].map(({ name: recordType, color }) => {
-              // 使用状态而不是直接调用函数，避免缓存问题
-              const isActive = currentRecordType === recordType
+          <div className="flex items-center space-x-4">
+            <div className="flex space-x-3">
+              {[
+                { name: '入院记录', color: 'orange' as const },
+                { name: '出院记录', color: 'green' as const },
+                { name: '首次病程记录', color: 'purple' as const }
+              ].map(({ name: recordType, color }) => {
+                // 使用状态而不是直接调用函数，避免缓存问题
+                const isActive = currentRecordType === recordType
 
-              // 定义颜色样式
-              const colorStyles: Record<'orange' | 'green' | 'purple', { active: string; inactive: string }> = {
-                orange: {
-                  active: 'bg-orange-500 text-white border-orange-500',
-                  inactive: 'bg-white text-orange-500 border-orange-500 hover:bg-orange-50'
-                },
-                green: {
-                  active: 'bg-green-500 text-white border-green-500',
-                  inactive: 'bg-white text-green-500 border-green-500 hover:bg-green-50'
-                },
-                purple: {
-                  active: 'bg-purple-500 text-white border-purple-500',
-                  inactive: 'bg-white text-purple-500 border-purple-500 hover:bg-purple-50'
+                // 定义颜色样式
+                const colorStyles: Record<'orange' | 'green' | 'purple', { active: string; inactive: string }> = {
+                  orange: {
+                    active: 'bg-orange-500 text-white border-orange-500',
+                    inactive: 'bg-white text-orange-500 border-orange-500 hover:bg-orange-50'
+                  },
+                  green: {
+                    active: 'bg-green-500 text-white border-green-500',
+                    inactive: 'bg-white text-green-500 border-green-500 hover:bg-green-50'
+                  },
+                  purple: {
+                    active: 'bg-purple-500 text-white border-purple-500',
+                    inactive: 'bg-white text-purple-500 border-purple-500 hover:bg-purple-50'
+                  }
                 }
-              }
 
-              const currentStyle = isActive ? colorStyles[color].active : colorStyles[color].inactive
+                const currentStyle = isActive ? colorStyles[color].active : colorStyles[color].inactive
 
-              return (
-                <button
-                  key={recordType}
-                  className={`px-3 py-1 text-sm font-medium rounded-md border-2 transition-all duration-200 transform hover:scale-105 ${currentStyle}`}
-                  onClick={() => window.setRecordType?.(recordType)}
-                >
-                  {recordType}
-                </button>
-              )
-            })}
+                return (
+                  <button
+                    key={recordType}
+                    className={`px-3 py-1 text-sm font-medium rounded-md border-2 transition-all duration-200 transform hover:scale-105 ${currentStyle}`}
+                    onClick={() => window.setRecordType?.(recordType)}
+                  >
+                    {recordType}
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 新会话按钮 */}
+            <button
+              className="flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all duration-200"
+              onClick={() => handleConversationIdChange('-1')}
+              title="新会话"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
           </div>
         </div>
       </div>
