@@ -383,6 +383,15 @@ const Main: FC<IMainProps> = () => {
       const conversationId = getCurrConversationId()
       console.log('会话ID变化，当前会话ID:', conversationId)
 
+      // 如果是新会话（ID为-1），直接创建开场白，不尝试恢复或获取历史记录
+      if (conversationId === '-1') {
+        console.log('新会话，创建开场白')
+        const newChatList = generateNewChatListWithOpenStatement()
+        setChatList(newChatList)
+        setChatStarted()
+        return
+      }
+
       // 如果已经从localStorage恢复了聊天列表，则不再执行会话切换逻辑
       if (getRestoredFromLocalStorage()) {
         console.log('已经从localStorage恢复了聊天列表，不再执行会话切换逻辑')
