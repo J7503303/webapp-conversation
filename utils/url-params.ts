@@ -38,7 +38,6 @@ export function setRecordType(recordType: string) {
   // 清除缓存，强制重新解析
   cachedPatientInfo = null
   lastUrl = null
-  console.log('手动设置病历类型为:', recordType)
 }
 
 /**
@@ -56,7 +55,6 @@ export function clearManualRecordType() {
   // 清除缓存，强制重新解析
   cachedPatientInfo = null
   lastUrl = null
-  console.log('清除手动设置的病历类型')
 }
 
 /**
@@ -71,25 +69,35 @@ export function getPatientInfoFromUrlParams() {
     }
   }
 
-  // 检查缓存，如果URL没有变化则直接返回缓存结果
+  // 如果有手动设置的病历类型，优先使用它，不使用缓存
+  if (manualRecordType) {
+    const urlParams = new URLSearchParams(window.location.search)
+    const patientIdRaw = urlParams.get('patient_id')
+
+    const tryDecode = (value: string | null): string | null => {
+      if (!value) return null
+      try {
+        const urlDecoded = decodeURIComponent(value)
+        return decodeBase64ToString(urlDecoded)
+      } catch (e) {
+        return value
+      }
+    }
+
+    const patientId = tryDecode(patientIdRaw)
+    return {
+      patientId,
+      recordType: manualRecordType
+    }
+  }
+
+  // 检查缓存，如果URL没有变化且没有手动设置则直接返回缓存结果
   const currentUrl = window.location.href
-  if (cachedPatientInfo && lastUrl === currentUrl) {
+  if (cachedPatientInfo && lastUrl === currentUrl && !manualRecordType) {
     return cachedPatientInfo
   }
 
   const urlParams = new URLSearchParams(window.location.search)
-
-  // 只在第一次或URL变化时输出调试信息
-  const shouldDebug = !lastUrl || lastUrl !== currentUrl
-  if (shouldDebug) {
-    console.log('=== URL参数调试信息 ===')
-    console.log('完整URL:', window.location.href)
-    console.log('查询字符串:', window.location.search)
-    console.log('所有URL参数:')
-    for (const [key, value] of urlParams.entries()) {
-      console.log(`  ${key}: ${value}`)
-    }
-  }
 
   // 获取患者ID和病历类型的原始值
   const patientIdRaw = urlParams.get('patient_id')
@@ -105,9 +113,6 @@ export function getPatientInfoFromUrlParams() {
       // 尝试base64解码
       return decodeBase64ToString(urlDecoded)
     } catch (e) {
-      if (shouldDebug) {
-        console.log('解码失败，使用原始值:', value)
-      }
       // 如果解码失败，使用原始值
       return value
     }
@@ -117,41 +122,22 @@ export function getPatientInfoFromUrlParams() {
   const patientId = tryDecode(patientIdRaw)
   let recordType = tryDecode(recordTypeRaw)
 
-  if (shouldDebug) {
-    console.log('获取到的患者ID:', patientIdRaw, '解码后:', patientId)
-    console.log('获取到的病历类型:', recordTypeRaw, '解码后:', recordType)
-  }
-
-  // 优先级：手动设置 > URL参数 > localStorage缓存
-  if (manualRecordType) {
-    recordType = manualRecordType
-    if (shouldDebug) {
-      console.log('使用手动设置的病历类型:', recordType)
-    }
-  } else if (!recordType && patientId && typeof localStorage !== 'undefined') {
-    // 如果URL参数中没有record_type，尝试从localStorage获取上次使用的病历类型
+  // 如果URL参数中没有record_type，尝试从localStorage获取上次使用的病历类型
+  if (!recordType && patientId && typeof localStorage !== 'undefined') {
     const lastUsedRecordTypeKey = `lastUsedRecordType_${patientId}`
-
-    // 正常的回填逻辑
     const lastUsedRecordType = localStorage.getItem(lastUsedRecordTypeKey)
     if (lastUsedRecordType) {
       recordType = lastUsedRecordType
-      if (shouldDebug) {
-        console.log('URL参数中没有病历类型，使用上次使用的病历类型:', recordType)
-      }
     }
   }
 
-  if (shouldDebug) {
-    console.log('最终确定的病历类型:', recordType)
-    console.log('=== URL参数调试信息结束 ===')
+  // 只有在没有手动设置时才缓存结果
+  if (!manualRecordType) {
+    cachedPatientInfo = { patientId, recordType }
+    lastUrl = currentUrl
   }
 
-  // 缓存结果
-  cachedPatientInfo = { patientId, recordType }
-  lastUrl = currentUrl
-
-  return cachedPatientInfo
+  return { patientId, recordType }
 }
 
 /**

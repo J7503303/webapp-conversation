@@ -23,6 +23,7 @@ import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate, isShowSidebar 
 import type { Annotation as AnnotationType } from '@/types/log'
 import { addFileInfos, sortAgentSorts } from '@/utils/tools'
 import { getInputsFromUrlParams, getPatientInfoFromUrlParams, getConversationIdFromUrlParams, setRecordType, clearManualRecordType } from '@/utils/url-params'
+import { encodeStringToBase64 } from '@/utils/base64-utils'
 
 // 添加全局类型声明，修复类型错误
 declare global {
@@ -76,8 +77,6 @@ const Main: FC<IMainProps> = () => {
       if ((rawPatientId && decodedPatientId && rawPatientId !== decodedPatientId) ||
         (rawRecordType && decodedRecordType && rawRecordType !== decodedRecordType)) {
 
-        console.log('检测到编码值与解码值不同，尝试迁移数据')
-
         // 遍历localStorage中的所有键
         Object.keys(localStorage).forEach(key => {
           // 检查是否为chatList_开头的键
@@ -99,7 +98,6 @@ const Main: FC<IMainProps> = () => {
 
             // 如果需要迁移，复制数据并删除旧键
             if (needsMigration && key !== newKey) {
-              console.log('迁移存储键:', key, '->', newKey)
               const data = localStorage.getItem(key)
               if (data) {
                 localStorage.setItem(newKey, data)
@@ -142,7 +140,6 @@ const Main: FC<IMainProps> = () => {
 
                 // 如果有更新，保存回localStorage
                 if (updated) {
-                  console.log('更新conversationIdInfo:', info, '->', newInfo)
                   localStorage.setItem(key, JSON.stringify(newInfo))
                 }
               } catch (e) {
@@ -163,34 +160,57 @@ const Main: FC<IMainProps> = () => {
 
     // 定义全局函数，供WPF应用调用
     window.setRecordType = (recordType: string) => {
-      console.log('WPF应用设置病历类型为:', recordType)
-      setRecordType(recordType)
+      console.log('=== 开始切换病历类型（URL跳转方式） ===')
+      console.log('目标病历类型:', recordType)
 
-      // 保存为上次使用的病历类型
+      // 获取当前URL参数
+      const urlParams = new URLSearchParams(window.location.search)
+
+      // 获取患者ID（保持原有的编码格式）
+      const patientIdRaw = urlParams.get('patient_id')
+
+      if (!patientIdRaw) {
+        console.error('无法获取患者ID，无法切换病历类型')
+        return
+      }
+
+      // 对病历类型进行base64编码（与URL参数格式保持一致）
+      let encodedRecordType: string
+      try {
+        // 使用与系统一致的GZIP压缩base64编码
+        encodedRecordType = encodeURIComponent(encodeStringToBase64(recordType))
+      } catch (e) {
+        console.error('病历类型编码失败:', e)
+        return
+      }
+
+      // 构建新的URL参数
+      const newUrlParams = new URLSearchParams(window.location.search)
+      newUrlParams.set('record_type', encodedRecordType)
+
+      // 构建新的URL
+      const newUrl = `${window.location.pathname}?${newUrlParams.toString()}`
+
+      console.log('跳转到新URL:', newUrl)
+
+      // 保存为上次使用的病历类型（在跳转前保存）
       const { patientId } = getPatientInfoFromUrlParams()
       if (patientId) {
         saveLastUsedRecordType(recordType)
       }
 
-      // 重新加载聊天列表
-      const conversationId = getCurrConversationId()
-      if (conversationId && conversationId !== '-1') {
-        const restored = smartRestoreChatListFromLocalStorage(conversationId)
-        if (restored) {
-          setChatStarted()
-          console.log('病历类型变更后重新加载聊天列表成功')
-        }
-      }
+      // 执行URL跳转
+      window.location.href = newUrl
+
+      console.log('=== 病历类型切换完成（URL跳转） ===')
     }
 
     window.clearRecordType = () => {
-      console.log('WPF应用清除病历类型设置')
       clearManualRecordType()
     }
 
     window.getCurrentRecordType = () => {
       const { recordType } = getPatientInfoFromUrlParams()
-      console.log('WPF应用获取当前病历类型:', recordType)
       return recordType
     }
 
@@ -237,6 +257,16 @@ const Main: FC<IMainProps> = () => {
 
   const [conversationIdChangeBecauseOfNew, setConversationIdChangeBecauseOfNew, getConversationIdChangeBecauseOfNew] = useGetState(false)
   const [isChatStarted, { setTrue: setChatStarted, setFalse: setChatNotStarted }] = useBoolean(false)
+
+  // 添加一个状态来跟踪当前的病历类型，用于强制UI更新
+  const [currentRecordType, setCurrentRecordType] = useState<string | null>(null)
+
+  // 初始化当前病历类型
+  useEffect(() => {
+    const { recordType } = getPatientInfoFromUrlParams()
+    setCurrentRecordType(recordType)
+  }, [])
+
   const handleStartChat = (inputs: Record<string, any>) => {
     createNewChat()
     setConversationIdChangeBecauseOfNew(true)
@@ -264,11 +294,9 @@ const Main: FC<IMainProps> = () => {
     // 获取实时的会话ID和新会话状态
     const realConversationId = getCurrConversationId()
     const realIsNewConversation = realConversationId === '-1'
-    console.log('切换会话，当前会话ID:', realConversationId, '是否新会话:', realIsNewConversation)
 
     // 如果已经从localStorage恢复了聊天列表，则不再执行会话切换逻辑
     if (getRestoredFromLocalStorage()) {
-      console.log('已经从localStorage恢复了聊天列表，不再执行会话切换逻辑')
       return
     }
 
@@ -425,7 +453,6 @@ const Main: FC<IMainProps> = () => {
     // 切换会话时，如果是新会话，清除动态record_type
     if (id === '-1') {
       sessionStorage.removeItem('dynamic_record_type')
-      console.log('切换到新会话，清除动态record_type')
     }
 
     setConversationIdChangeBecauseOfNew(false)
@@ -436,7 +463,6 @@ const Main: FC<IMainProps> = () => {
   const doResetConversation = () => {
     // 重置会话时清除动态record_type
     sessionStorage.removeItem('dynamic_record_type')
-    console.log('重置会话，清除动态record_type')
 
     createNewChat()
     setConversationIdChangeBecauseOfNew(true)
@@ -479,7 +505,6 @@ const Main: FC<IMainProps> = () => {
   const setChatList = (newList: ChatItem[]) => {
     // 如果已经从localStorage恢复了聊天列表，且新列表为空或只有开场白，则不覆盖已恢复的聊天列表
     if (getRestoredFromLocalStorage() && (newList.length === 0 || (newList.length === 1 && newList[0].isOpeningStatement))) {
-      console.log('已经从localStorage恢复了聊天列表，不覆盖，新列表长度:', newList.length, '是否只有开场白:', newList.length === 1 && newList[0].isOpeningStatement)
       return
     }
 
@@ -487,7 +512,6 @@ const Main: FC<IMainProps> = () => {
     // 使用getCurrConversationId()获取实时的会话ID
     const realIsNewConversation = getCurrConversationId() === '-1'
     if (newList.length === 0 && prevChatListRef.current.length > 0 && !realIsNewConversation) {
-      console.log('新列表为空但上一次列表不为空，保留上一次列表')
       return
     }
 
@@ -515,7 +539,6 @@ const Main: FC<IMainProps> = () => {
               storageKey += `_record_${dynamicRecordType}`
 
             localStorage.setItem(storageKey, JSON.stringify(newList))
-            console.log('保存聊天列表到localStorage，会话ID:', conversationId, '患者ID:', patientId, '病历类型:', dynamicRecordType, '项数:', newList.length)
           }
         } catch (e) {
           console.error('Failed to save chat list to localStorage:', e)
@@ -523,7 +546,6 @@ const Main: FC<IMainProps> = () => {
       }
     }
 
-    console.log('设置聊天列表，项数:', newList.length)
     _setChatList(newList)
   }
 
@@ -540,13 +562,6 @@ const Main: FC<IMainProps> = () => {
         // 尝试从sessionStorage获取动态record_type，如果没有则使用URL参数中的record_type
         const dynamicRecordType = sessionStorage.getItem('dynamic_record_type') || getPatientInfoFromUrlParams().recordType
 
-        console.log('=== 恢复聊天列表调试信息 ===')
-        console.log('会话ID:', conversationId)
-        console.log('患者ID:', patientId)
-        console.log('动态病历类型:', sessionStorage.getItem('dynamic_record_type'))
-        console.log('URL参数病历类型:', getPatientInfoFromUrlParams().recordType)
-        console.log('最终使用的病历类型:', dynamicRecordType)
-
         // 生成包含患者信息的存储键
         let storageKey = `chatList_${conversationId}`
         if (patientId)
@@ -554,11 +569,8 @@ const Main: FC<IMainProps> = () => {
         if (dynamicRecordType)
           storageKey += `_record_${dynamicRecordType}`
 
-        console.log('尝试恢复聊天记录，使用存储键:', storageKey)
-
         // 列出所有相关的localStorage键，用于调试
         const allKeys = Object.keys(localStorage).filter(key => key.startsWith(`chatList_${conversationId}`))
-        console.log('localStorage中所有相关的键:', allKeys)
 
         const savedChatList = localStorage.getItem(storageKey)
         if (savedChatList) {
@@ -568,27 +580,19 @@ const Main: FC<IMainProps> = () => {
             setRestoredFromLocalStorage(true)
             // 设置为已开始聊天，确保聊天列表能正确显示
             setChatStarted()
-            console.log('从 localStorage 恢复聊天列表成功，设置为已开始聊天，患者ID:', patientId, '病历类型:', dynamicRecordType)
             return true
           }
-        } else {
-          console.log('使用存储键未找到数据:', storageKey)
         }
 
         // 如果上述方法都失败，尝试智能匹配
-        console.log('尝试智能匹配相关的存储键...')
-
         // 尝试从localStorage获取上次使用的record_type
         const lastUsedRecordTypeKey = `lastUsedRecordType_${patientId}`
         const lastUsedRecordType = localStorage.getItem(lastUsedRecordTypeKey)
-        console.log('上次使用的病历类型键:', lastUsedRecordTypeKey)
-        console.log('上次使用的病历类型值:', lastUsedRecordType)
 
         let bestMatch = null
         let bestScore = 0
 
         for (const key of allKeys) {
-          console.log('检查键:', key)
           const data = localStorage.getItem(key)
           if (data) {
             try {
@@ -606,11 +610,8 @@ const Main: FC<IMainProps> = () => {
                   // 如果匹配上次使用的record_type，大幅加分
                   if (lastUsedRecordType && key.includes(`_record_${lastUsedRecordType}`)) {
                     score += 50 // 上次使用的record_type优先级最高
-                    console.log(`键 ${key} 匹配上次使用的病历类型 ${lastUsedRecordType}，大幅加分`)
                   }
                 }
-
-                console.log(`键 ${key} 得分: ${score}`)
 
                 if (score > bestScore) {
                   bestScore = score
@@ -623,15 +624,12 @@ const Main: FC<IMainProps> = () => {
           }
         }
 
-        console.log('最佳匹配键:', bestMatch, '得分:', bestScore)
-
         if (bestMatch) {
           // 从键中提取record_type并保存为上次使用的
           const recordTypeMatch = bestMatch.match(/_record_(.+)$/)
           if (recordTypeMatch) {
             const extractedRecordType = recordTypeMatch[1]
             localStorage.setItem(lastUsedRecordTypeKey, extractedRecordType)
-            console.log('保存当前使用的病历类型:', extractedRecordType, '到键:', lastUsedRecordTypeKey)
           }
 
           try {
@@ -642,7 +640,6 @@ const Main: FC<IMainProps> = () => {
                 _setChatList(parsedChatList)
                 setRestoredFromLocalStorage(true)
                 setChatStarted()
-                console.log('智能匹配恢复聊天列表成功，使用键:', bestMatch, '数据长度:', parsedChatList.length)
                 return true
               }
             }
@@ -654,44 +651,32 @@ const Main: FC<IMainProps> = () => {
     } catch (e) {
       console.error('Failed to restore chat list from localStorage:', e)
     }
-    console.log('=== 恢复聊天列表失败 ===')
     setRestoredFromLocalStorage(false)
     return false
   }
 
   // 智能恢复聊天列表的函数 - 当精确匹配失败时尝试智能匹配
   const smartRestoreChatListFromLocalStorage = (conversationId: string) => {
-    console.log('=== 开始智能恢复聊天列表 ===')
-
     // 首先尝试标准恢复
     const standardRestore = restoreChatListFromLocalStorage(conversationId)
     if (standardRestore) {
-      console.log('标准恢复成功')
       return true
     }
-
-    console.log('标准恢复失败，开始智能匹配...')
 
     // 获取所有相关的localStorage键
     const allChatListKeys = Object.keys(localStorage).filter(key =>
       key.startsWith('chatList_') && key.includes(conversationId)
     )
 
-    console.log('找到的相关键:', allChatListKeys)
-
     if (allChatListKeys.length === 0) {
-      console.log('没有找到任何相关的聊天记录')
       return false
     }
 
     const { patientId } = getPatientInfoFromUrlParams()
-    console.log('智能匹配中的患者ID:', patientId)
 
     // 尝试从localStorage获取上次使用的record_type
     const lastUsedRecordTypeKey = `lastUsedRecordType_${patientId}`
     const lastUsedRecordType = localStorage.getItem(lastUsedRecordTypeKey)
-    console.log('上次使用的病历类型键:', lastUsedRecordTypeKey)
-    console.log('上次使用的病历类型值:', lastUsedRecordType)
 
     let bestMatch = null
     let bestScore = 0
@@ -709,11 +694,8 @@ const Main: FC<IMainProps> = () => {
         // 如果匹配上次使用的record_type，大幅加分
         if (lastUsedRecordType && key.includes(`_record_${lastUsedRecordType}`)) {
           score += 50 // 上次使用的record_type优先级最高
-          console.log(`键 ${key} 匹配上次使用的病历类型 ${lastUsedRecordType}，大幅加分`)
         }
       }
-
-      console.log(`键 ${key} 得分: ${score}`)
 
       if (score > bestScore) {
         bestScore = score
@@ -721,15 +703,12 @@ const Main: FC<IMainProps> = () => {
       }
     }
 
-    console.log('最佳匹配键:', bestMatch, '得分:', bestScore)
-
     if (bestMatch) {
       // 从键中提取record_type并保存为上次使用的
       const recordTypeMatch = bestMatch.match(/_record_(.+)$/)
       if (recordTypeMatch) {
         const extractedRecordType = recordTypeMatch[1]
         localStorage.setItem(lastUsedRecordTypeKey, extractedRecordType)
-        console.log('保存当前使用的病历类型:', extractedRecordType, '到键:', lastUsedRecordTypeKey)
       }
 
       try {
@@ -740,7 +719,6 @@ const Main: FC<IMainProps> = () => {
             _setChatList(parsedChatList)
             setRestoredFromLocalStorage(true)
             setChatStarted()
-            console.log('智能匹配恢复聊天列表成功，使用键:', bestMatch, '数据长度:', parsedChatList.length)
             return true
           }
         }
@@ -749,46 +727,40 @@ const Main: FC<IMainProps> = () => {
       }
     }
 
-    console.log('=== 智能恢复聊天列表失败 ===')
     return false
   }
 
   // 在页面加载时恢复聊天列表
   useEffect(() => {
-    console.log('=== 页面加载时恢复聊天列表 ===')
-
     // 检查并保存当前的病历类型为上次使用的病历类型
     const { patientId, recordType } = getPatientInfoFromUrlParams()
     if (patientId && recordType) {
       saveLastUsedRecordType(recordType)
     }
 
+    // 更新当前病历类型状态
+    setCurrentRecordType(recordType)
+
     // 先从localStorage获取会话ID
     const storedConversationId = getConversationIdFromStorage(APP_ID)
-    console.log('页面加载时从localStorage获取的会话ID:', storedConversationId)
 
     // 同时检查URL参数中的会话ID
     const urlConversationId = getConversationIdFromUrlParams()
-    console.log('URL参数中的会话ID:', urlConversationId)
 
     // 如果有有效的会话ID，先设置当前会话ID
     if (storedConversationId && storedConversationId !== '-1') {
       // 设置当前会话ID，但不再写入localStorage
       setCurrConversationId(storedConversationId, APP_ID, false)
-      console.log('设置当前会话ID为存储的会话ID:', storedConversationId)
 
       // 然后从localStorage恢复聊天列表
       const restored = smartRestoreChatListFromLocalStorage(storedConversationId)
-      console.log('页面加载时恢复聊天列表结果:', restored ? '成功' : '失败')
 
       // 如果恢复成功，设置为已开始聊天
       if (restored) {
         setChatStarted()
-        console.log('页面加载时恢复聊天列表成功，设置为已开始聊天')
 
         // 将当前会话添加到会话列表中，确保会话列表中有当前会话
         if (!conversationList.some(item => item.id === storedConversationId)) {
-          console.log('将当前会话添加到会话列表中:', storedConversationId)
           setConversationList(produce(conversationList, (draft) => {
             draft.unshift({
               id: storedConversationId,
@@ -802,20 +774,16 @@ const Main: FC<IMainProps> = () => {
     } else {
       // 如果没有有效的会话ID，尝试使用当前会话ID
       const conversationId = getCurrConversationId()
-      console.log('没有有效的存储会话ID，尝试使用当前会话ID:', conversationId)
 
       if (conversationId && conversationId !== '-1') {
         const restored = smartRestoreChatListFromLocalStorage(conversationId)
-        console.log('页面加载时恢复聊天列表结果:', restored ? '成功' : '失败')
 
         // 如果恢复成功，设置为已开始聊天
         if (restored) {
           setChatStarted()
-          console.log('页面加载时恢复聊天列表成功，设置为已开始聊天')
 
           // 将当前会话添加到会话列表中，确保会话列表中有当前会话
           if (!conversationList.some(item => item.id === conversationId)) {
-            console.log('将当前会话添加到会话列表中:', conversationId)
             setConversationList(produce(conversationList, (draft) => {
               draft.unshift({
                 id: conversationId,
@@ -828,8 +796,6 @@ const Main: FC<IMainProps> = () => {
         }
       }
     }
-
-    console.log('=== 页面加载时恢复聊天列表结束 ===')
   }, []) // 空依赖数组表示只在页面加载时执行一次
   const chatListDomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -1130,7 +1096,6 @@ const Main: FC<IMainProps> = () => {
 
     for (const keyword of keywords) {
       if (message.includes(keyword)) {
-        console.log('从用户消息中检测到病历类型:', keyword)
         return keyword
       }
     }
@@ -1149,7 +1114,6 @@ const Main: FC<IMainProps> = () => {
         // 只有当病历类型发生变化时才保存
         if (currentLastUsed !== recordType) {
           localStorage.setItem(lastUsedRecordTypeKey, recordType)
-          console.log('保存上次使用的病历类型:', recordType, '患者ID:', patientId)
         }
       }
     } catch (e) {
@@ -1180,7 +1144,9 @@ const Main: FC<IMainProps> = () => {
       try {
         // 保存到sessionStorage，用于后续获取
         sessionStorage.setItem('dynamic_record_type', detectedRecordType)
-        console.log('更新动态病历类型为:', detectedRecordType)
+
+        // 更新当前病历类型状态
+        setCurrentRecordType(detectedRecordType)
 
         // 保存为上次使用的病历类型
         saveLastUsedRecordType(detectedRecordType)
@@ -1631,78 +1597,38 @@ const Main: FC<IMainProps> = () => {
 
   return (
     <div className='bg-gray-100'>
-      {/* 临时测试按钮 - 用于测试病历类型切换 */}
-      <div className="fixed top-4 right-4 z-50 bg-white p-2 rounded shadow-lg border">
-        <div className="text-sm mb-2">测试病历类型切换:</div>
-        <button
-          className="px-3 py-1 bg-blue-500 text-white rounded mr-2 text-sm"
-          onClick={() => window.setRecordType?.('入院记录')}
-        >
-          入院记录
-        </button>
-        <button
-          className="px-3 py-1 bg-green-500 text-white rounded mr-2 text-sm"
-          onClick={() => window.setRecordType?.('出院记录')}
-        >
-          出院记录
-        </button>
-        <button
-          className="px-3 py-1 bg-gray-500 text-white rounded mr-2 text-sm"
-          onClick={() => console.log('当前病历类型:', window.getCurrentRecordType?.())}
-        >
-          查看当前
-        </button>
-        <button
-          className="px-3 py-1 bg-purple-500 text-white rounded text-sm"
-          onClick={() => {
-            console.log('=== localStorage调试信息 ===')
-            const conversationId = getCurrConversationId()
-            const { patientId } = getPatientInfoFromUrlParams()
-            console.log('当前会话ID:', conversationId)
-            console.log('患者ID:', patientId)
-
-            // 显示所有相关的localStorage键
-            const allKeys = Object.keys(localStorage).filter(key =>
-              key.startsWith('chatList_') && key.includes(conversationId)
-            )
-            console.log('所有相关的chatList键:', allKeys)
-
-            allKeys.forEach(key => {
-              const data = localStorage.getItem(key)
-              if (data) {
-                try {
-                  const parsed = JSON.parse(data)
-                  console.log(`键: ${key}, 数据长度: ${parsed.length}`)
-                } catch (e) {
-                  console.log(`键: ${key}, 解析失败`)
-                }
-              }
-            })
-
-            // 显示conversationIdInfo
-            const conversationIdInfo = localStorage.getItem('conversationIdInfo')
-            if (conversationIdInfo) {
-              console.log('conversationIdInfo:', JSON.parse(conversationIdInfo))
-            }
-
-            // 显示上次使用的病历类型
-            const lastUsedKey = `lastUsedRecordType_${patientId}`
-            const lastUsed = localStorage.getItem(lastUsedKey)
-            console.log('上次使用的病历类型:', lastUsed)
-
-            console.log('=== localStorage调试信息结束 ===')
-          }}
-        >
-          调试localStorage
-        </button>
-      </div>
-
       <Header
         title={APP_INFO.title}
         isMobile={isMobile}
         onShowSideBar={showSidebar}
         onCreateNewChat={() => handleConversationIdChange('-1')}
       />
+
+      {/* 病历类型切换栏 */}
+      <div className="bg-white border-b border-gray-200 px-4 py-2">
+        <div className="flex items-center space-x-4">
+          <span className="text-sm text-gray-600">病历类型:</span>
+          <div className="flex space-x-2">
+            {['入院记录', '出院记录', '首次病程记录'].map((recordType) => {
+              // 使用状态而不是直接调用函数，避免缓存问题
+              const isActive = currentRecordType === recordType
+              return (
+                <button
+                  key={recordType}
+                  className={`px-3 py-1 text-sm rounded transition-colors ${isActive
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  onClick={() => window.setRecordType?.(recordType)}
+                >
+                  {recordType}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
       <div className="flex rounded-t-2xl bg-[#f7f8f9] overflow-hidden max-w-full">
         {/* sidebar - 根据配置决定是否显示 */}
         {configIsShowSidebar && !isMobile && renderSidebar()}
