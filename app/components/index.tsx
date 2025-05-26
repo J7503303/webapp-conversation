@@ -22,7 +22,7 @@ import AppUnavailable from '@/app/components/app-unavailable'
 import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate, isShowSidebar as configIsShowSidebar } from '@/config'
 import type { Annotation as AnnotationType } from '@/types/log'
 import { addFileInfos, sortAgentSorts } from '@/utils/tools'
-import { getInputsFromUrlParams, getPatientInfoFromUrlParams } from '@/utils/url-params'
+import { getInputsFromUrlParams, getPatientInfoFromUrlParams, getConversationIdFromUrlParams, setRecordType, clearManualRecordType } from '@/utils/url-params'
 
 // 添加全局类型声明，修复类型错误
 declare global {
@@ -30,6 +30,10 @@ declare global {
     openingStatement?: string;
     openingQuestions?: string[];
     sendSuggestedQuestion?: CustomEvent;
+    // 添加WPF应用调用的函数
+    setRecordType?: (recordType: string) => void;
+    clearRecordType?: () => void;
+    getCurrentRecordType?: () => string | null;
   }
 }
 
@@ -156,6 +160,46 @@ const Main: FC<IMainProps> = () => {
   // 在组件挂载时清理可能存在的旧格式存储键
   useEffect(() => {
     cleanupLegacyStorageKeys()
+
+    // 定义全局函数，供WPF应用调用
+    window.setRecordType = (recordType: string) => {
+      console.log('WPF应用设置病历类型为:', recordType)
+      setRecordType(recordType)
+
+      // 保存为上次使用的病历类型
+      const { patientId } = getPatientInfoFromUrlParams()
+      if (patientId) {
+        saveLastUsedRecordType(recordType)
+      }
+
+      // 重新加载聊天列表
+      const conversationId = getCurrConversationId()
+      if (conversationId && conversationId !== '-1') {
+        const restored = smartRestoreChatListFromLocalStorage(conversationId)
+        if (restored) {
+          setChatStarted()
+          console.log('病历类型变更后重新加载聊天列表成功')
+        }
+      }
+    }
+
+    window.clearRecordType = () => {
+      console.log('WPF应用清除病历类型设置')
+      clearManualRecordType()
+    }
+
+    window.getCurrentRecordType = () => {
+      const { recordType } = getPatientInfoFromUrlParams()
+      console.log('WPF应用获取当前病历类型:', recordType)
+      return recordType
+    }
+
+    // 组件卸载时清理全局函数
+    return () => {
+      delete window.setRecordType
+      delete window.clearRecordType
+      delete window.getCurrentRecordType
+    }
   }, [])
 
   useEffect(() => {
@@ -246,7 +290,14 @@ const Main: FC<IMainProps> = () => {
         console.log('从服务器获取历史记录，会话ID:', realConversationId)
         fetchChatList(realConversationId).then((res: any) => {
           const { data } = res
-          const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
+
+          // 检查是否有历史记录
+          const hasHistoryMessages = data && data.length > 0
+
+          // 创建新的聊天列表 - 只有在没有历史记录时才创建开场白
+          const newChatList: ChatItem[] = hasHistoryMessages
+            ? []
+            : generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
 
           data.forEach((item: any) => {
             newChatList.push({
@@ -265,10 +316,12 @@ const Main: FC<IMainProps> = () => {
               message_files: item.message_files?.filter((file: any) => file.belongs_to === 'assistant') || [],
             })
           })
-          console.log('从服务器获取历史记录成功，设置聊天列表，项数:', newChatList.length)
+          console.log('从服务器获取历史记录成功，设置聊天列表，项数:', newChatList.length, '有历史记录:', hasHistoryMessages)
           setChatList(newChatList)
           // 确保聊天已开始，这样在刷新页面后能正确显示聊天内容
-          setChatStarted()
+          if (hasHistoryMessages || newChatList.length > 0) {
+            setChatStarted()
+          }
         }).catch(err => {
           console.error('加载历史记录失败:', err)
         })
@@ -309,13 +362,52 @@ const Main: FC<IMainProps> = () => {
       }
 
       // 尝试从localStorage恢复聊天列表
-      const restored = restoreChatListFromLocalStorage(conversationId)
+      const restored = smartRestoreChatListFromLocalStorage(conversationId)
       console.log('尝试从localStorage恢复聊天列表结果:', restored ? '成功' : '失败')
 
-      // 如果没有从localStorage恢复成功，则执行正常的会话切换逻辑
+      // 如果没有从localStorage恢复成功，则从服务器获取历史记录
       if (!restored) {
-        console.log('没有从localStorage恢复成功，执行正常的会话切换逻辑')
-        handleConversationSwitch()
+        console.log('No chat list in localStorage, fetching from server...')
+        // 直接加载历史记录
+        fetchChatList(conversationId).then((res: any) => {
+          const { data } = res
+
+          // 检查是否有历史记录
+          const hasHistoryMessages = data && data.length > 0
+
+          // 创建新的聊天列表 - 只有在没有历史记录时才创建开场白
+          const newChatList: ChatItem[] = hasHistoryMessages
+            ? []
+            : generateNewChatListWithOpenStatement(conversationIntroduction, currInputs)
+
+          // 添加历史记录
+          data.forEach((item: any) => {
+            newChatList.push({
+              id: `question-${item.id}`,
+              content: item.query,
+              isAnswer: false,
+              message_files: item.message_files?.filter((file: any) => file.belongs_to === 'user') || [],
+            })
+            newChatList.push({
+              id: item.id,
+              content: item.answer,
+              agent_thoughts: addFileInfos(item.agent_thoughts ? sortAgentSorts(item.agent_thoughts) : item.agent_thoughts, item.message_files),
+              feedback: item.feedback,
+              isAnswer: true,
+              message_files: item.message_files?.filter((file: any) => file.belongs_to === 'assistant') || [],
+            })
+          })
+
+          console.log('从服务器获取历史记录成功，设置聊天列表，项数:', newChatList.length, '有历史记录:', hasHistoryMessages)
+          setChatList(newChatList)
+
+          // 确保聊天已开始，这样在刷新页面后能正确显示聊天内容
+          if (hasHistoryMessages || newChatList.length > 0) {
+            setChatStarted()
+          }
+        }).catch(err => {
+          console.error('加载历史记录失败:', err)
+        })
       }
     }
   }, [currConversationId])
@@ -366,6 +458,7 @@ const Main: FC<IMainProps> = () => {
         setCurrInputs(processedInputs)
       }
     }
+    // 重置会话时创建开场白，因为这是一个全新的对话
     const newChatList = generateNewChatListWithOpenStatement()
     _setChatList(newChatList)
     setChatStarted()
@@ -385,8 +478,8 @@ const Main: FC<IMainProps> = () => {
   // 包裹setChatList函数，添加保护机制
   const setChatList = (newList: ChatItem[]) => {
     // 如果已经从localStorage恢复了聊天列表，且新列表为空或只有开场白，则不覆盖已恢复的聊天列表
-    if (getRestoredFromLocalStorage() && (newList.length === 0 || newList.length === 1)) {
-      console.log('已经从localStorage恢复了聊天列表，不覆盖')
+    if (getRestoredFromLocalStorage() && (newList.length === 0 || (newList.length === 1 && newList[0].isOpeningStatement))) {
+      console.log('已经从localStorage恢复了聊天列表，不覆盖，新列表长度:', newList.length, '是否只有开场白:', newList.length === 1 && newList[0].isOpeningStatement)
       return
     }
 
@@ -394,6 +487,7 @@ const Main: FC<IMainProps> = () => {
     // 使用getCurrConversationId()获取实时的会话ID
     const realIsNewConversation = getCurrConversationId() === '-1'
     if (newList.length === 0 && prevChatListRef.current.length > 0 && !realIsNewConversation) {
+      console.log('新列表为空但上一次列表不为空，保留上一次列表')
       return
     }
 
@@ -446,6 +540,13 @@ const Main: FC<IMainProps> = () => {
         // 尝试从sessionStorage获取动态record_type，如果没有则使用URL参数中的record_type
         const dynamicRecordType = sessionStorage.getItem('dynamic_record_type') || getPatientInfoFromUrlParams().recordType
 
+        console.log('=== 恢复聊天列表调试信息 ===')
+        console.log('会话ID:', conversationId)
+        console.log('患者ID:', patientId)
+        console.log('动态病历类型:', sessionStorage.getItem('dynamic_record_type'))
+        console.log('URL参数病历类型:', getPatientInfoFromUrlParams().recordType)
+        console.log('最终使用的病历类型:', dynamicRecordType)
+
         // 生成包含患者信息的存储键
         let storageKey = `chatList_${conversationId}`
         if (patientId)
@@ -454,6 +555,10 @@ const Main: FC<IMainProps> = () => {
           storageKey += `_record_${dynamicRecordType}`
 
         console.log('尝试恢复聊天记录，使用存储键:', storageKey)
+
+        // 列出所有相关的localStorage键，用于调试
+        const allKeys = Object.keys(localStorage).filter(key => key.startsWith(`chatList_${conversationId}`))
+        console.log('localStorage中所有相关的键:', allKeys)
 
         const savedChatList = localStorage.getItem(storageKey)
         if (savedChatList) {
@@ -466,48 +571,205 @@ const Main: FC<IMainProps> = () => {
             console.log('从 localStorage 恢复聊天列表成功，设置为已开始聊天，患者ID:', patientId, '病历类型:', dynamicRecordType)
             return true
           }
+        } else {
+          console.log('使用存储键未找到数据:', storageKey)
         }
 
-        // 如果使用动态record_type没有找到聊天记录，尝试使用URL参数中的原始record_type
-        if (dynamicRecordType !== getPatientInfoFromUrlParams().recordType) {
-          const originalRecordType = getPatientInfoFromUrlParams().recordType
+        // 如果上述方法都失败，尝试智能匹配
+        console.log('尝试智能匹配相关的存储键...')
 
-          if (originalRecordType) {
-            // 使用原始record_type生成存储键
-            let originalStorageKey = `chatList_${conversationId}`
-            if (patientId)
-              originalStorageKey += `_patient_${patientId}`
-            if (originalRecordType)
-              originalStorageKey += `_record_${originalRecordType}`
+        // 尝试从localStorage获取上次使用的record_type
+        const lastUsedRecordTypeKey = `lastUsedRecordType_${patientId}`
+        const lastUsedRecordType = localStorage.getItem(lastUsedRecordTypeKey)
+        console.log('上次使用的病历类型键:', lastUsedRecordTypeKey)
+        console.log('上次使用的病历类型值:', lastUsedRecordType)
 
-            console.log('动态record_type未找到记录，尝试使用原始record_type:', originalStorageKey)
+        let bestMatch = null
+        let bestScore = 0
 
-            const originalSavedChatList = localStorage.getItem(originalStorageKey)
-            if (originalSavedChatList) {
-              const parsedChatList = JSON.parse(originalSavedChatList)
+        for (const key of allKeys) {
+          console.log('检查键:', key)
+          const data = localStorage.getItem(key)
+          if (data) {
+            try {
+              const parsedData = JSON.parse(data)
+              if (parsedData && parsedData.length > 0) {
+                let score = 1 // 基础分数，因为包含了会话ID
+
+                if (patientId && key.includes(`_patient_${patientId}`)) {
+                  score += 10 // 患者ID匹配加分
+                }
+
+                if (key.includes('_record_')) {
+                  score += 5 // 有record_type加分
+
+                  // 如果匹配上次使用的record_type，大幅加分
+                  if (lastUsedRecordType && key.includes(`_record_${lastUsedRecordType}`)) {
+                    score += 50 // 上次使用的record_type优先级最高
+                    console.log(`键 ${key} 匹配上次使用的病历类型 ${lastUsedRecordType}，大幅加分`)
+                  }
+                }
+
+                console.log(`键 ${key} 得分: ${score}`)
+
+                if (score > bestScore) {
+                  bestScore = score
+                  bestMatch = key
+                }
+              }
+            } catch (e) {
+              console.error('解析数据失败:', key, e)
+            }
+          }
+        }
+
+        console.log('最佳匹配键:', bestMatch, '得分:', bestScore)
+
+        if (bestMatch) {
+          // 从键中提取record_type并保存为上次使用的
+          const recordTypeMatch = bestMatch.match(/_record_(.+)$/)
+          if (recordTypeMatch) {
+            const extractedRecordType = recordTypeMatch[1]
+            localStorage.setItem(lastUsedRecordTypeKey, extractedRecordType)
+            console.log('保存当前使用的病历类型:', extractedRecordType, '到键:', lastUsedRecordTypeKey)
+          }
+
+          try {
+            const savedChatList = localStorage.getItem(bestMatch)
+            if (savedChatList) {
+              const parsedChatList = JSON.parse(savedChatList)
               if (parsedChatList && parsedChatList.length > 0) {
                 _setChatList(parsedChatList)
                 setRestoredFromLocalStorage(true)
                 setChatStarted()
-                console.log('使用原始record_type恢复聊天列表成功，患者ID:', patientId, '病历类型:', originalRecordType)
+                console.log('智能匹配恢复聊天列表成功，使用键:', bestMatch, '数据长度:', parsedChatList.length)
                 return true
               }
             }
+          } catch (e) {
+            console.error('智能匹配解析数据失败:', e)
           }
         }
       }
     } catch (e) {
       console.error('Failed to restore chat list from localStorage:', e)
     }
+    console.log('=== 恢复聊天列表失败 ===')
     setRestoredFromLocalStorage(false)
+    return false
+  }
+
+  // 智能恢复聊天列表的函数 - 当精确匹配失败时尝试智能匹配
+  const smartRestoreChatListFromLocalStorage = (conversationId: string) => {
+    console.log('=== 开始智能恢复聊天列表 ===')
+
+    // 首先尝试标准恢复
+    const standardRestore = restoreChatListFromLocalStorage(conversationId)
+    if (standardRestore) {
+      console.log('标准恢复成功')
+      return true
+    }
+
+    console.log('标准恢复失败，开始智能匹配...')
+
+    // 获取所有相关的localStorage键
+    const allChatListKeys = Object.keys(localStorage).filter(key =>
+      key.startsWith('chatList_') && key.includes(conversationId)
+    )
+
+    console.log('找到的相关键:', allChatListKeys)
+
+    if (allChatListKeys.length === 0) {
+      console.log('没有找到任何相关的聊天记录')
+      return false
+    }
+
+    const { patientId } = getPatientInfoFromUrlParams()
+    console.log('智能匹配中的患者ID:', patientId)
+
+    // 尝试从localStorage获取上次使用的record_type
+    const lastUsedRecordTypeKey = `lastUsedRecordType_${patientId}`
+    const lastUsedRecordType = localStorage.getItem(lastUsedRecordTypeKey)
+    console.log('上次使用的病历类型键:', lastUsedRecordTypeKey)
+    console.log('上次使用的病历类型值:', lastUsedRecordType)
+
+    let bestMatch = null
+    let bestScore = 0
+
+    for (const key of allChatListKeys) {
+      let score = 1 // 基础分数，因为包含了会话ID
+
+      if (patientId && key.includes(`_patient_${patientId}`)) {
+        score += 10 // 患者ID匹配加分
+      }
+
+      if (key.includes('_record_')) {
+        score += 5 // 有record_type加分
+
+        // 如果匹配上次使用的record_type，大幅加分
+        if (lastUsedRecordType && key.includes(`_record_${lastUsedRecordType}`)) {
+          score += 50 // 上次使用的record_type优先级最高
+          console.log(`键 ${key} 匹配上次使用的病历类型 ${lastUsedRecordType}，大幅加分`)
+        }
+      }
+
+      console.log(`键 ${key} 得分: ${score}`)
+
+      if (score > bestScore) {
+        bestScore = score
+        bestMatch = key
+      }
+    }
+
+    console.log('最佳匹配键:', bestMatch, '得分:', bestScore)
+
+    if (bestMatch) {
+      // 从键中提取record_type并保存为上次使用的
+      const recordTypeMatch = bestMatch.match(/_record_(.+)$/)
+      if (recordTypeMatch) {
+        const extractedRecordType = recordTypeMatch[1]
+        localStorage.setItem(lastUsedRecordTypeKey, extractedRecordType)
+        console.log('保存当前使用的病历类型:', extractedRecordType, '到键:', lastUsedRecordTypeKey)
+      }
+
+      try {
+        const savedChatList = localStorage.getItem(bestMatch)
+        if (savedChatList) {
+          const parsedChatList = JSON.parse(savedChatList)
+          if (parsedChatList && parsedChatList.length > 0) {
+            _setChatList(parsedChatList)
+            setRestoredFromLocalStorage(true)
+            setChatStarted()
+            console.log('智能匹配恢复聊天列表成功，使用键:', bestMatch, '数据长度:', parsedChatList.length)
+            return true
+          }
+        }
+      } catch (e) {
+        console.error('智能匹配解析数据失败:', e)
+      }
+    }
+
+    console.log('=== 智能恢复聊天列表失败 ===')
     return false
   }
 
   // 在页面加载时恢复聊天列表
   useEffect(() => {
+    console.log('=== 页面加载时恢复聊天列表 ===')
+
+    // 检查并保存当前的病历类型为上次使用的病历类型
+    const { patientId, recordType } = getPatientInfoFromUrlParams()
+    if (patientId && recordType) {
+      saveLastUsedRecordType(recordType)
+    }
+
     // 先从localStorage获取会话ID
     const storedConversationId = getConversationIdFromStorage(APP_ID)
     console.log('页面加载时从localStorage获取的会话ID:', storedConversationId)
+
+    // 同时检查URL参数中的会话ID
+    const urlConversationId = getConversationIdFromUrlParams()
+    console.log('URL参数中的会话ID:', urlConversationId)
 
     // 如果有有效的会话ID，先设置当前会话ID
     if (storedConversationId && storedConversationId !== '-1') {
@@ -516,7 +778,7 @@ const Main: FC<IMainProps> = () => {
       console.log('设置当前会话ID为存储的会话ID:', storedConversationId)
 
       // 然后从localStorage恢复聊天列表
-      const restored = restoreChatListFromLocalStorage(storedConversationId)
+      const restored = smartRestoreChatListFromLocalStorage(storedConversationId)
       console.log('页面加载时恢复聊天列表结果:', restored ? '成功' : '失败')
 
       // 如果恢复成功，设置为已开始聊天
@@ -543,7 +805,7 @@ const Main: FC<IMainProps> = () => {
       console.log('没有有效的存储会话ID，尝试使用当前会话ID:', conversationId)
 
       if (conversationId && conversationId !== '-1') {
-        const restored = restoreChatListFromLocalStorage(conversationId)
+        const restored = smartRestoreChatListFromLocalStorage(conversationId)
         console.log('页面加载时恢复聊天列表结果:', restored ? '成功' : '失败')
 
         // 如果恢复成功，设置为已开始聊天
@@ -566,6 +828,8 @@ const Main: FC<IMainProps> = () => {
         }
       }
     }
+
+    console.log('=== 页面加载时恢复聊天列表结束 ===')
   }, []) // 空依赖数组表示只在页面加载时执行一次
   const chatListDomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -593,7 +857,12 @@ const Main: FC<IMainProps> = () => {
   }
 
   // sometime introduction is not applied to state
-  const generateNewChatListWithOpenStatement = (introduction?: string, inputs?: Record<string, any> | null) => {
+  const generateNewChatListWithOpenStatement = (introduction?: string, inputs?: Record<string, any> | null, skipOpeningStatement = false) => {
+    // 如果明确跳过开场白，返回空数组
+    if (skipOpeningStatement) {
+      return []
+    }
+
     // 确保有开场白，如果没有传入则使用默认值
     // 使用appParams中的opening_statement作为默认值
     let calculatedIntroduction = introduction || conversationIntroduction || ''
@@ -686,7 +955,7 @@ const Main: FC<IMainProps> = () => {
           })
 
           // 尝试从localStorage恢复聊天列表
-          const restored = restoreChatListFromLocalStorage(_conversationId)
+          const restored = smartRestoreChatListFromLocalStorage(_conversationId)
 
           // 如果没有从localStorage恢复成功，则从服务器获取历史记录
           if (!restored) {
@@ -695,8 +964,13 @@ const Main: FC<IMainProps> = () => {
             fetchChatList(_conversationId).then((res: any) => {
               const { data } = res
 
-              // 创建新的聊天列表
-              const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
+              // 检查是否有历史记录
+              const hasHistoryMessages = data && data.length > 0
+
+              // 创建新的聊天列表 - 只有在没有历史记录时才创建开场白
+              const newChatList: ChatItem[] = hasHistoryMessages
+                ? []
+                : generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
 
               // 添加历史记录
               data.forEach((item: any) => {
@@ -716,8 +990,13 @@ const Main: FC<IMainProps> = () => {
                 })
               })
 
-              // 设置聊天列表
+              console.log('从服务器获取历史记录成功，设置聊天列表，项数:', newChatList.length, '有历史记录:', hasHistoryMessages)
               setChatList(newChatList)
+
+              // 确保聊天已开始，这样在刷新页面后能正确显示聊天内容
+              if (hasHistoryMessages || newChatList.length > 0) {
+                setChatStarted()
+              }
             }).catch(err => {
               console.error('加载历史记录失败:', err)
             })
@@ -726,11 +1005,13 @@ const Main: FC<IMainProps> = () => {
           // 设置inited状态
           setInited(true)
         } else {
-          // 对于新会话，直接创建包含开场白和开场问题的聊天列表
-          const newChatList = generateNewChatListWithOpenStatement(introduction, null)
-          console.log('Creating new chat list for new conversation:', newChatList)
-          if (newChatList.length > 0) {
-            setChatList(newChatList)
+          // 对于新会话，只有在没有从localStorage恢复聊天列表时才创建包含开场白的聊天列表
+          if (!getRestoredFromLocalStorage()) {
+            const newChatList = generateNewChatListWithOpenStatement(introduction, null)
+            console.log('Creating new chat list for new conversation:', newChatList)
+            if (newChatList.length > 0) {
+              setChatList(newChatList)
+            }
           }
           setInited(true)
         }
@@ -857,6 +1138,25 @@ const Main: FC<IMainProps> = () => {
     return null
   }
 
+  // 添加一个函数，用于保存上次使用的病历类型
+  const saveLastUsedRecordType = (recordType: string) => {
+    try {
+      const { patientId } = getPatientInfoFromUrlParams()
+      if (patientId && recordType) {
+        const lastUsedRecordTypeKey = `lastUsedRecordType_${patientId}`
+        const currentLastUsed = localStorage.getItem(lastUsedRecordTypeKey)
+
+        // 只有当病历类型发生变化时才保存
+        if (currentLastUsed !== recordType) {
+          localStorage.setItem(lastUsedRecordTypeKey, recordType)
+          console.log('保存上次使用的病历类型:', recordType, '患者ID:', patientId)
+        }
+      }
+    } catch (e) {
+      console.error('保存上次使用的病历类型失败:', e)
+    }
+  }
+
   const transformToServerFile = (fileItem: any) => {
     return {
       type: 'image',
@@ -875,12 +1175,15 @@ const Main: FC<IMainProps> = () => {
     // 从用户消息中检测病历类型
     const detectedRecordType = detectRecordType(message)
 
-    // 如果检测到了病历类型，则更新sessionStorage
+    // 如果检测到了病历类型，则更新sessionStorage和保存为上次使用的病历类型
     if (detectedRecordType) {
       try {
         // 保存到sessionStorage，用于后续获取
         sessionStorage.setItem('dynamic_record_type', detectedRecordType)
         console.log('更新动态病历类型为:', detectedRecordType)
+
+        // 保存为上次使用的病历类型
+        saveLastUsedRecordType(detectedRecordType)
       } catch (e) {
         console.error('保存动态病历类型失败:', e)
       }
@@ -1274,7 +1577,7 @@ const Main: FC<IMainProps> = () => {
         }))
       },
     })
-  }, [isResponding, currInputs, isNewConversation, currConversationId, visionConfig, getChatList, setChatList, getConversationIdChangeBecauseOfNew, setConversationIdChangeBecauseOfNew, resetNewConversationInputs, setChatNotStarted, setCurrConversationId, setRespondingFalse, notify, t, restoreChatListFromLocalStorage, getRestoredFromLocalStorage])
+  }, [isResponding, currInputs, isNewConversation, currConversationId, visionConfig, getChatList, setChatList, getConversationIdChangeBecauseOfNew, setConversationIdChangeBecauseOfNew, resetNewConversationInputs, setChatNotStarted, setCurrConversationId, setRespondingFalse, notify, t, smartRestoreChatListFromLocalStorage, getRestoredFromLocalStorage])
 
   const handleFeedback = async (messageId: string, feedback: Feedbacktype) => {
     await updateFeedback({ url: `/messages/${messageId}/feedbacks`, body: { rating: feedback.rating } })
@@ -1328,6 +1631,72 @@ const Main: FC<IMainProps> = () => {
 
   return (
     <div className='bg-gray-100'>
+      {/* 临时测试按钮 - 用于测试病历类型切换 */}
+      <div className="fixed top-4 right-4 z-50 bg-white p-2 rounded shadow-lg border">
+        <div className="text-sm mb-2">测试病历类型切换:</div>
+        <button
+          className="px-3 py-1 bg-blue-500 text-white rounded mr-2 text-sm"
+          onClick={() => window.setRecordType?.('入院记录')}
+        >
+          入院记录
+        </button>
+        <button
+          className="px-3 py-1 bg-green-500 text-white rounded mr-2 text-sm"
+          onClick={() => window.setRecordType?.('出院记录')}
+        >
+          出院记录
+        </button>
+        <button
+          className="px-3 py-1 bg-gray-500 text-white rounded mr-2 text-sm"
+          onClick={() => console.log('当前病历类型:', window.getCurrentRecordType?.())}
+        >
+          查看当前
+        </button>
+        <button
+          className="px-3 py-1 bg-purple-500 text-white rounded text-sm"
+          onClick={() => {
+            console.log('=== localStorage调试信息 ===')
+            const conversationId = getCurrConversationId()
+            const { patientId } = getPatientInfoFromUrlParams()
+            console.log('当前会话ID:', conversationId)
+            console.log('患者ID:', patientId)
+
+            // 显示所有相关的localStorage键
+            const allKeys = Object.keys(localStorage).filter(key =>
+              key.startsWith('chatList_') && key.includes(conversationId)
+            )
+            console.log('所有相关的chatList键:', allKeys)
+
+            allKeys.forEach(key => {
+              const data = localStorage.getItem(key)
+              if (data) {
+                try {
+                  const parsed = JSON.parse(data)
+                  console.log(`键: ${key}, 数据长度: ${parsed.length}`)
+                } catch (e) {
+                  console.log(`键: ${key}, 解析失败`)
+                }
+              }
+            })
+
+            // 显示conversationIdInfo
+            const conversationIdInfo = localStorage.getItem('conversationIdInfo')
+            if (conversationIdInfo) {
+              console.log('conversationIdInfo:', JSON.parse(conversationIdInfo))
+            }
+
+            // 显示上次使用的病历类型
+            const lastUsedKey = `lastUsedRecordType_${patientId}`
+            const lastUsed = localStorage.getItem(lastUsedKey)
+            console.log('上次使用的病历类型:', lastUsed)
+
+            console.log('=== localStorage调试信息结束 ===')
+          }}
+        >
+          调试localStorage
+        </button>
+      </div>
+
       <Header
         title={APP_INFO.title}
         isMobile={isMobile}

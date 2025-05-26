@@ -22,6 +22,43 @@ export function getConfigFromUrlParams() {
 
 import { decodeBase64ToString } from './base64-utils'
 
+// 添加缓存机制，避免重复解析URL参数
+let cachedPatientInfo: { patientId: string | null; recordType: string | null } | null = null
+let lastUrl: string | null = null
+
+// 手动设置的病历类型（用于WPF应用无法通过URL传递时）
+let manualRecordType: string | null = null
+
+/**
+ * 手动设置病历类型（用于WPF应用调用）
+ * @param recordType 病历类型，如"入院记录"、"出院记录"等
+ */
+export function setRecordType(recordType: string) {
+  manualRecordType = recordType
+  // 清除缓存，强制重新解析
+  cachedPatientInfo = null
+  lastUrl = null
+  console.log('手动设置病历类型为:', recordType)
+}
+
+/**
+ * 获取手动设置的病历类型
+ */
+export function getManualRecordType(): string | null {
+  return manualRecordType
+}
+
+/**
+ * 清除手动设置的病历类型
+ */
+export function clearManualRecordType() {
+  manualRecordType = null
+  // 清除缓存，强制重新解析
+  cachedPatientInfo = null
+  lastUrl = null
+  console.log('清除手动设置的病历类型')
+}
+
 /**
  * 从URL参数中获取患者ID和病历类型
  * 支持从URL参数中获取患者相关信息，并进行base64解码
@@ -34,7 +71,25 @@ export function getPatientInfoFromUrlParams() {
     }
   }
 
+  // 检查缓存，如果URL没有变化则直接返回缓存结果
+  const currentUrl = window.location.href
+  if (cachedPatientInfo && lastUrl === currentUrl) {
+    return cachedPatientInfo
+  }
+
   const urlParams = new URLSearchParams(window.location.search)
+
+  // 只在第一次或URL变化时输出调试信息
+  const shouldDebug = !lastUrl || lastUrl !== currentUrl
+  if (shouldDebug) {
+    console.log('=== URL参数调试信息 ===')
+    console.log('完整URL:', window.location.href)
+    console.log('查询字符串:', window.location.search)
+    console.log('所有URL参数:')
+    for (const [key, value] of urlParams.entries()) {
+      console.log(`  ${key}: ${value}`)
+    }
+  }
 
   // 获取患者ID和病历类型的原始值
   const patientIdRaw = urlParams.get('patient_id')
@@ -50,7 +105,9 @@ export function getPatientInfoFromUrlParams() {
       // 尝试base64解码
       return decodeBase64ToString(urlDecoded)
     } catch (e) {
-      console.log('解码失败，使用原始值:', value)
+      if (shouldDebug) {
+        console.log('解码失败，使用原始值:', value)
+      }
       // 如果解码失败，使用原始值
       return value
     }
@@ -58,15 +115,71 @@ export function getPatientInfoFromUrlParams() {
 
   // 尝试解码
   const patientId = tryDecode(patientIdRaw)
-  const recordType = tryDecode(recordTypeRaw)
+  let recordType = tryDecode(recordTypeRaw)
 
-  console.log('获取到的患者ID:', patientIdRaw, '解码后:', patientId)
-  console.log('获取到的病历类型:', recordTypeRaw, '解码后:', recordType)
-
-  return {
-    patientId,
-    recordType,
+  if (shouldDebug) {
+    console.log('获取到的患者ID:', patientIdRaw, '解码后:', patientId)
+    console.log('获取到的病历类型:', recordTypeRaw, '解码后:', recordType)
   }
+
+  // 优先级：手动设置 > URL参数 > localStorage缓存
+  if (manualRecordType) {
+    recordType = manualRecordType
+    if (shouldDebug) {
+      console.log('使用手动设置的病历类型:', recordType)
+    }
+  } else if (!recordType && patientId && typeof localStorage !== 'undefined') {
+    // 如果URL参数中没有record_type，尝试从localStorage获取上次使用的病历类型
+    const lastUsedRecordTypeKey = `lastUsedRecordType_${patientId}`
+
+    // 正常的回填逻辑
+    const lastUsedRecordType = localStorage.getItem(lastUsedRecordTypeKey)
+    if (lastUsedRecordType) {
+      recordType = lastUsedRecordType
+      if (shouldDebug) {
+        console.log('URL参数中没有病历类型，使用上次使用的病历类型:', recordType)
+      }
+    }
+  }
+
+  if (shouldDebug) {
+    console.log('最终确定的病历类型:', recordType)
+    console.log('=== URL参数调试信息结束 ===')
+  }
+
+  // 缓存结果
+  cachedPatientInfo = { patientId, recordType }
+  lastUrl = currentUrl
+
+  return cachedPatientInfo
+}
+
+/**
+ * 从URL参数中获取会话ID
+ * 支持从URL参数中获取会话相关信息，用于直接跳转到特定会话
+ */
+export function getConversationIdFromUrlParams() {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  const urlParams = new URLSearchParams(window.location.search)
+
+  // 获取会话ID，支持多种参数名
+  const conversationId = urlParams.get('conversation_id') || urlParams.get('conv_id') || urlParams.get('cid')
+
+  if (conversationId) {
+    // 尝试解码（如果是编码的）
+    try {
+      const urlDecoded = decodeURIComponent(conversationId)
+      return decodeBase64ToString(urlDecoded)
+    } catch (e) {
+      console.log('会话ID解码失败，使用原始值:', conversationId)
+      return conversationId
+    }
+  }
+
+  return null
 }
 
 /**
