@@ -1596,29 +1596,49 @@ const Main: FC<IMainProps> = () => {
     return <Loading type='app' />
 
   return (
-    <div className='bg-gray-100'>
-      <Header
+    <div className='bg-gray-100 h-screen overflow-hidden'>
+      {/* 隐藏Header，只保留病历类型切换栏 */}
+      {/* <Header
         title={APP_INFO.title}
         isMobile={isMobile}
         onShowSideBar={showSidebar}
         onCreateNewChat={() => handleConversationIdChange('-1')}
-      />
+      /> */}
 
       {/* 病历类型切换栏 */}
       <div className="bg-white border-b border-gray-200 px-4 py-2">
-        <div className="flex items-center space-x-4">
-          <span className="text-sm text-gray-600">病历类型:</span>
-          <div className="flex space-x-2">
-            {['入院记录', '出院记录', '首次病程记录'].map((recordType) => {
+        <div className="flex items-center justify-center">
+          <div className="flex space-x-3">
+            {[
+              { name: '入院记录', color: 'orange' as const },
+              { name: '出院记录', color: 'green' as const },
+              { name: '首次病程记录', color: 'purple' as const }
+            ].map(({ name: recordType, color }) => {
               // 使用状态而不是直接调用函数，避免缓存问题
               const isActive = currentRecordType === recordType
+
+              // 定义颜色样式
+              const colorStyles: Record<'orange' | 'green' | 'purple', { active: string; inactive: string }> = {
+                orange: {
+                  active: 'bg-orange-500 text-white border-orange-500',
+                  inactive: 'bg-white text-orange-500 border-orange-500 hover:bg-orange-50'
+                },
+                green: {
+                  active: 'bg-green-500 text-white border-green-500',
+                  inactive: 'bg-white text-green-500 border-green-500 hover:bg-green-50'
+                },
+                purple: {
+                  active: 'bg-purple-500 text-white border-purple-500',
+                  inactive: 'bg-white text-purple-500 border-purple-500 hover:bg-purple-50'
+                }
+              }
+
+              const currentStyle = isActive ? colorStyles[color].active : colorStyles[color].inactive
+
               return (
                 <button
                   key={recordType}
-                  className={`px-3 py-1 text-sm rounded transition-colors ${isActive
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                  className={`px-3 py-1 text-sm font-medium rounded-md border-2 transition-all duration-200 transform hover:scale-105 ${currentStyle}`}
                   onClick={() => window.setRecordType?.(recordType)}
                 >
                   {recordType}
@@ -1629,7 +1649,7 @@ const Main: FC<IMainProps> = () => {
         </div>
       </div>
 
-      <div className="flex rounded-t-2xl bg-[#f7f8f9] overflow-hidden max-w-full">
+      <div className="flex rounded-t-2xl bg-[#f7f8f9] overflow-hidden max-w-full" style={{ height: 'calc(100vh - 45px)' }}>
         {/* sidebar - 根据配置决定是否显示 */}
         {configIsShowSidebar && !isMobile && renderSidebar()}
         {configIsShowSidebar && isMobile && isShowSidebar && (
@@ -1643,24 +1663,26 @@ const Main: FC<IMainProps> = () => {
           </div>
         )}
         {/* main */}
-        <div className='flex-grow flex flex-col h-[calc(100vh_-_3rem)] overflow-y-auto'>
-          <div className="shrink-0 mb-0">
-            <ConfigSence
-              conversationName={conversationName}
-              hasSetInputs={hasSetInputs}
-              isPublicVersion={isShowPrompt}
-              siteInfo={APP_INFO}
-              promptConfig={promptConfig}
-              onStartChat={handleStartChat}
-              canEditInputs={canEditInputs}
-              savedInputs={currInputs as Record<string, any>}
-              onInputsChange={setCurrInputs}
-            ></ConfigSence>
-          </div>
+        <div className='flex-grow flex flex-col overflow-hidden h-full'>
+          {!hasSetInputs && (
+            <div className="shrink-0 mb-0">
+              <ConfigSence
+                conversationName={conversationName}
+                hasSetInputs={hasSetInputs}
+                isPublicVersion={isShowPrompt}
+                siteInfo={APP_INFO}
+                promptConfig={promptConfig}
+                onStartChat={handleStartChat}
+                canEditInputs={canEditInputs}
+                savedInputs={currInputs as Record<string, any>}
+                onInputsChange={setCurrInputs}
+              ></ConfigSence>
+            </div>
+          )}
 
           {
             hasSetInputs && (
-              <div className='relative grow h-[calc(100vh_-_5rem)] pc:w-[100%] max-w-full w-full pb-[45px] pr-0 pl-1 mx-0 mb-0 overflow-hidden'>
+              <div className='relative flex-grow h-full pc:w-[100%] max-w-full w-full pb-[45px] pr-0 pl-1 mx-0 mb-0 overflow-hidden'>
                 <div className='h-full w-full overflow-y-auto overflow-x-hidden' ref={chatListDomRef}>
                   <Chat
                     chatList={chatList}

@@ -82,11 +82,15 @@ const Welcome: FC<IWelcomeProps> = ({
   }
 
   const renderHeader = () => {
-    return (
-      <div className='absolute top-0 left-0 right-0 flex items-center justify-between border-b border-gray-100 mobile:h-12 tablet:h-16 px-8 bg-white'>
-        <div className='text-gray-900'>{conversationName}</div>
-      </div>
-    )
+    // 隐藏标题栏
+    return null
+
+    // 原来的代码被注释掉
+    // return (
+    //   <div className='absolute top-0 left-0 right-0 flex items-center justify-between border-b border-gray-100 mobile:h-12 tablet:h-16 px-8 bg-white'>
+    //     <div className='text-gray-900'>{conversationName}</div>
+    //   </div>
+    // )
   }
 
   const renderInputs = () => {
